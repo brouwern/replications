@@ -1,0 +1,43 @@
+---
+title: "To Do"
+author: "brouwern@gmail.com"
+date: "May 24, 2017"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# To Do
+
+
+## Data cleaning
+
+### Solve differences in counts for BITH
+high priority - throws off betas
+
+### Resolve difference counts for GTGT
+lower priority - doesn't throw off betas much
+  *This was checked; while my counts for Table 2 don't match, the data in the figure for this spp matches my data; the difference of ~20 individuals is probalby due to being off by 1 or 2 indidividuals per site per year for some reason*
+
+
+### Use graphs to estimate data
+?already done?
+back-calcualte using net hours to get observed N?
+
+
+## Data processing
+
+-fill in the rest of the confidence intervals, p values etc mentioned in the text
+-Create workflow to extact data from fitted models to compare to published valeus for all focal species discussed i the text
+-run models that drop 1997 as they do in the text
+-determine if models in text for species w/no trend are N~Year or N~Year + Site models
+
+
+Things to address in paper-
+1)how does GLMM compare to their GLM
+2)Can we estimate trends for more species?
+3)How do our GLMMs compare to their GLMS when the drop 1997 for certain species?
+4)can our GLMMs detect year*site effect?; this could be tricky - would be year*site*spp effects...
+5)what is imapct of overdisp?  they said it wasn't a problem....

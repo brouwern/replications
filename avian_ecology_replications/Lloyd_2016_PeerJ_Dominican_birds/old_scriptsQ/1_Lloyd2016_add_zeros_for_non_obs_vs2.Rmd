@@ -1,0 +1,67 @@
+---
+title: "Lloyd 2016 DR Birds: Add zeros when species not captured"
+author: "brouwern@gmail.com"
+date: "February 17, 2017"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Add zeros
+
+Need to add zeros for year-Location combinations when a species was not captured BUT banding DID occur
+
+* initial file: Lloyd_PeerJ2916_cleaned_data_2_7_2017.csv
+* final file:   Lloyd_PeerJ2916_cleaned_with_0s_2_7_2017.csv
+
+## Load Lloyd data
+
+```{r}
+setwd("C:/Users/lisanjie2/Dropbox/Scott_E_Aviary_Projects")
+
+spp.ann.tot <- read.csv(file = "Lloyd_PeerJ2916_cleaned_data_2_7_2017.csv")
+```
+
+
+
+## Examine data
+
+Most species were captured very rarely in any given year
+```{r}
+hist(spp.ann.tot$spp.ann.tot)
+```
+
+
+
+
+
+
+There now should be NAs inserted into the abundance column in years when a species wasn't observed at a particular site
+```{r}
+summary(spp.ann.tot.b$spp.ann.tot)
+```
+
+
+Convert those NAs to zeros
+```{r}
+i.NA <- which(is.na(spp.ann.tot.b$spp.ann.tot) == TRUE)
+spp.ann.tot.b[i.NA,"spp.ann.tot"] <- 0
+```
+
+
+Check that zeros have been added
+```{r}
+summary(spp.ann.tot.b$spp.ann.tot)
+```
+
+
+
+# Save data
+
+```{r}
+write.csv(spp.ann.tot.b, 
+          file = "Lloyd_PeerJ2916_cleaned_with_0s_2_7_2017.csv")
+```
+

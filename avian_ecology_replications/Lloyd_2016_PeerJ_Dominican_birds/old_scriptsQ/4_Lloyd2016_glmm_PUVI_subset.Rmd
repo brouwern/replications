@@ -1,0 +1,688 @@
+---
+title: "Lloyd 2016 DR Birds: PALO GLMM"
+author: "brouwern@gmail.com"
+date: "February 16, 2017"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+# ISSUES / EDITS
+
+* NOTE: the file that gets read it already has spp obs in < 3 years already removed
+* Still seems to be some issues w/ data
+* extracting predictions when...
+    + offest
+    + nesting random effects
+    + (what did I do w/Costa Rica?)
+
+
+# Introduction
+
+This script splits off the PALO data from the full Lloyd et al 2016 dataset uses it to demonstrate the mixed modeling approach
+
+#Data setup
+
+## Load Lloyd data
+
+```{r}
+setwd("C:/Users/lisanjie2/Dropbox/Scott_E_Aviary_Projects")
+
+dat <- read.csv(file = "Lloyd_PeerJ2916_for_regression_2_16_2017.csv")
+```
+
+
+
+## Load spp info
+
+* skip = 7 skipst he 7 rows of header info in this fiel
+```{r}
+spp.info <- read.csv(file = "Latta_Lloyd_species_list_SLvs1.csv",
+                     skip = 7)
+
+head(spp.info)
+
+```
+
+
+
+## Merge
+
+```{r}
+names(dat)[3] <-"spp.code"
+
+dat2 <- merge(dat, spp.info)
+
+dim(dat2)
+dim(dat)
+
+dat <- dat2
+
+
+#remove some extra rows
+dat <- dat[,-c(2,4,6)]
+```
+
+
+
+
+
+
+## Look at PUVI vs PALO
+
+
+* There where two years where PALO was not visited, 2001 and 2002
+* Neither site visited in 1999
+
+```{r}
+with(dat, table(Year,
+                Location))
+```
+
+
+Equivalent
+```{r}
+table(dat$Location, dat$Year)
+```
+
+
+## Subset PUVI
+
+
+```{r}
+i.PUVI <- which(dat$Location == "PUVI")
+
+dat.PUVI <- dat[i.PUVI,]
+
+dim(dat)
+dim(dat.PUVI)
+```
+
+
+### Use just species capture > 3 sep years
+
+
+**ISSUE**: I think this is redundant - already done previously in prior script
+
+```{r}
+i4plus <- which(dat.PUVI$tot.years.obs > 3)
+
+dat.PUVI <- dat.PUVI[i4plus,]
+
+length(i4plus)
+dim(dat.PUVI)
+
+```
+
+
+
+# GLMM set up
+
+## Load library
+```{r}
+library(lme4)
+```
+
+
+## Set up for GLMM
+
+GLMMs work best when continous covariates are centered.
+
+```{r}
+dat.PUVI$Year.cent <- with(dat.PUVI,
+                               scale(Year,
+                                     scale = F))
+```
+
+
+Poisson models are often overdispered; this can be corrected by including a observation level random effect, which can be made by giving each row of data  unique ID.
+
+See 
+Using observation-level random effects to model overdispersion in count data in ecology and evolution
+XA Harrison - PeerJ, 2014 - peerj.com
+https://peerj.com/articles/616/
+
+```{r}
+dat.PUVI$row.effect <- 1:dim(dat.PUVI)[1]
+```
+
+## Order disturbance sensitivty factor
+
+
+Change from alphabetical order
+
+```{r}
+dat.PUVI$sensitivity <- factor(dat.PUVI$sensitivity,
+                               levels = c("L",
+                                          "M",
+                                          "H"))
+```
+
+
+## Order migration "status" factor
+
+Change from alphabetical order
+
+```{r}
+dat.PUVI$status <- factor(dat.PUVI$status,
+                               levels = c("res",
+                                          "NEO"))
+```
+
+
+
+
+
+# Explore data
+
+Plot by disturbance sensitivity
+```{r}
+library(ggplot2)
+library(cowplot)
+qplot(y = spp.ann.tot,
+      x = Year.cent,
+      color = spp.code,
+      data = dat.PUVI,
+      facets = sensitivity ~ .)
+```
+
+
+# Explore data: migrants vs. residents
+
+Plot by migration
+```{r}
+library(ggplot2)
+library(cowplot)
+qplot(y = spp.ann.tot,
+      x = Year.cent,
+      color = spp.code,
+      data = dat.PUVI,
+      facets = status ~ .)
+```
+
+
+
+# Fit a GLM to data to determine if trends are different between migrants and non migrants
+
+A naive model would treat each data point as independent.  This is entirely inappropriat but used for illustration
+
+
+## Null model: no trend
+```{r}
+glm.null <- glm(spp.ann.tot ~ 1,
+data = dat.PUVI,
+offset = log(net.hours),
+family = poisson)
+```
+Plot by migration
+```{r}
+library(ggplot2)
+library(cowplot)
+qplot(y = spp.ann.tot,
+      x = Year.cent,
+      #color = spp.code,
+      data = dat.PUVI) +
+  geom_smooth(method = "lm")
+```
+
+
+## Annual trend
+```{r}
+glm.year <- glm(spp.ann.tot ~ Year.cent,
+data = dat.PUVI,
+offset = log(net.hours),
+family = poisson)
+```
+
+## No annual trend, but different average abundance by status
+```{r}
+glm.status <- glm(spp.ann.tot ~ status,
+data = dat.PUVI,
+offset = log(net.hours),
+family = poisson)
+```
+
+
+
+
+Plot by migration
+```{r}
+library(ggplot2)
+library(cowplot)
+qplot(y = spp.ann.tot,
+      x = Year.cent,
+      color = status,
+      data = dat.PUVI) +
+  geom_smooth(method = "lm")
+```
+
+
+
+
+## Trend, with different interactp
+
+```{r}
+glm.add <- glm(spp.ann.tot ~ Year.cent + status,
+data = dat.PUVI,
+offset = log(net.hours),
+family = poisson)
+```
+
+
+## Trends vary by status
+
+```{r}
+glm.int <- glm(spp.ann.tot ~ Year.cent*status,
+data = dat.PUVI,
+offset = log(net.hours),
+family = poisson)
+```
+
+
+## Compare models
+
+These (inappropriate models) indicate that trends are different between migrants (NEO) and residents
+
+```{r}
+library(bbmle)
+
+ICtab(type = "AICc",
+      glm.null,
+      glm.year,
+      glm.status,
+      glm.add,
+      glm.int)
+```
+
+
+The slope fyr year*status is positive (and significant at p<0.05)
+```{r}
+summary(glm.int)
+```
+
+
+# Plot glm.year
+
+ggplot can fit this model on the fly
+
+```{r}
+qplot(y = spp.ann.tot,
+      x = Year.cent,
+      #color = spp.code,
+      data = dat.PUVI) + 
+  #facet_grid(status~., scale = "free") +
+ geom_smooth(method = "glm", se = FALSE,
+              method.args = list(family = "poisson"))
+```
+
+## Fit a GLMM w/ an intercept for each species
+
+* Species vary in their abundance; some are commone, some are rare
+* We can have the model give each species its own intercept to account for its general level of abundance
+* use lme4::glmer()
+* add " + (1|Species) " 
+* This is a "random intercepts"" model
+* Assumes each species has its own intercept, and the distribution of intercepts can be modeld w/ a normal distribution.
+* The model will fit a single slope and single intercept as its primary output
+* Aroudn that intercept you can also determine the distribution of intercept terms
+
+
+## Fit random intercepts model
+
+
+```{r}
+library(lme4)
+rand.intercept <- glmer(spp.ann.tot ~ Year.cent +
+      (1|spp.code),
+      offset = log(net.hours),
+data = dat.PUVI,
+family = poisson)
+```
+
+### Model summary
+```{r}
+summary(rand.intercept)
+```
+
+### Compare to naive model
+
+Slopes are similar, but intercepts are changed.
+
+```{r}
+rbind(glmm = fixef(rand.intercept),
+      glm = coef(glm.year))
+```
+
+
+### Distribution of slopes
+
+The slopes for each species
+```{r}
+ranef(rand.intercept)
+```
+
+
+Order by magnitude
+```{r}
+#extract random intercepts
+my.ranefs <- ranef(rand.intercept)$spp.code
+
+#put them in order
+i <- order(my.ranefs[,1],decreasing = T)
+
+my.ranefs$spp <- row.names(my.ranefs)
+
+
+```
+
+Look at relatively most abund and least abund
+```{r}
+
+rbind(head(my.ranefs[i ,])
+      ,c("...","...")
+,tail(my.ranefs[i ,]))
+```
+
+
+If we added the overall intercept we would get the mean abundance (on the log link scale).  
+
+```{r}
+mean.N.from.ranef <- exp(my.ranefs[i ,"(Intercept)"] + fixef(rand.intercept)[1])
+
+
+mean.N.from.ranef <- cbind(data.frame(mean.N.from.ranef), my.ranefs$spp[i])
+
+names(mean.N.from.ranef)[2] <- "spp.code"
+```
+
+We centered the year predictor; the intercepts therefore represent the abundance of these species the middle year of the study.  
+
+
+
+The middle year is 2004
+```{r}
+with(dat.PUVI, table(Year, 
+                     round(Year.cent)))
+```
+
+
+```{r}
+i.2004 <- which(dat.PUVI$Year == 2004)
+```
+
+
+Average capture
+```{r}
+library(doBy)
+
+mean.N.raw <- summaryBy(spp.ann.tot ~ spp.code, 
+                        dat.PUVI)
+```
+
+
+
+
+
+Mean abundance in 2004 and slopes from random intercepts model are almost exactly the same
+
+```{r}
+temp <- merge(mean.N.raw,
+              mean.N.from.ranef)
+
+
+plot(temp$spp.ann.tot.mean,
+     temp$mean.N.from.ranef)
+abline(a = 0,b=1)
+```
+
+
+
+
+
+# Visualizing the random intercepts model
+
+
+Generate predictions
+```{r}
+dat.PUVI$y.hat <- predict(rand.intercept,
+                          type = "response")
+```
+
+Seperate line for each species
+```{r}
+randslopeplot <- qplot(y = spp.ann.tot,
+      x = Year.cent,
+      color = spp.code,
+      data = dat.PUVI) +
+  geom_line(aes(y = y.hat, 
+                x = Year.cent,
+                color = spp.code)) + theme(legend.position="none")
+
+
+randslopeplot
+```
+
+NOTE: the lines DO have different slopes, BUT, this is b/c of the transformation from the Poisson models log link scale to ther eral scale.  The parameters themselves DO NOT have differents slopes for each species.s
+
+
+
+
+
+
+
+# Random intercepts slopes
+
+* What we want is a seperate model for each species
+* AND and overall trend for the two "status" types
+* This is a "random slopes" model
+* It assumes that the slopes at the species-level are drawn from a normal distribution.
+* Each species will also have its own intercept (drawn from a normal distribution)
+* + (Year.cent|Species)
+* "(Year.cent|spp.code)" fits sep intercept for each spp
+
+```{r}
+rand.slopes <- glmer(spp.ann.tot ~ Year.cent +
+        (Year.cent|spp.code),
+data = dat.PUVI,
+offset = log(net.hours),
+family = poisson)
+```
+
+
+```{r}
+
+summary(rand.slopes)
+
+```
+
+
+
+# Visualizing the random slopes model
+
+
+
+
+Generate predictions
+```{r}
+dat.PUVI$y.hat2 <- predict(rand.slopes,
+                           type = "response")
+```
+
+Seperate line for each species
+```{r}
+randintplot <- qplot(y = spp.ann.tot,
+      x = Year.cent,
+      color = spp.code,
+      data = dat.PUVI) +
+  geom_line(aes(y = y.hat2, 
+                x = Year.cent,
+                color = spp.code)) + theme(legend.position="none")
+
+
+randintplot
+```
+
+
+
+
+# compare the 2 models
+
+```{r}
+ library(cowplot)
+plot_grid(randslopeplot, 
+          randintplot)
+```
+
+
+
+
+
+
+
+# Include year random effect
+
+* All measurements within a year are "nested" within a year
+* They are not independent
+
+```{r}
+rand.slopes2 <- glmer(spp.ann.tot ~ Year.cent +
+          (Year.cent|spp.code) +
+          (1|Year),
+data = dat.PUVI,
+offset = log(net.hours),
+family = poisson)
+
+summary(rand.slopes2)
+```
+
+
+# Overdispersion
+
+
+http://glmm.wikidot.com/faq
+
+```{r}
+overdisp_fun <- function(model) {
+  ## number of variance parameters in 
+  ##   an n-by-n variance-covariance matrix
+  vpars <- function(m) {
+    nrow(m)*(nrow(m)+1)/2
+  }
+  model.df <- sum(sapply(VarCorr(model),vpars))+length(fixef(model))
+  rdf <- nrow(model.frame(model))-model.df
+  rp <- residuals(model,type="pearson")
+  Pearson.chisq <- sum(rp^2)
+  prat <- Pearson.chisq/rdf
+}
+```
+
+
+
+```{r}
+overdisp_fun(rand.slopes3)
+```
+
+
+
+
+# Include observation level random effect
+
+```{r}
+rand.slopes3 <- glmer(spp.ann.tot ~ Year.cent +
+            (Year.cent|spp.code) +
+            (1|Year) +
+            (1|row.effect),
+data = dat.PUVI,
+offset = log(net.hours),
+family = poisson)
+
+summary(rand.slopes3)
+```
+
+
+
+
+
+
+```{r}
+overdisp_fun(rand.slopes3)
+```
+
+
+
+# Plot by species
+
+```{r}
+
+
+dat.PUVI$y.hat3 <- predict(rand.slopes3,
+                           re.form = ~(Year.cent|spp.code),
+type = "response")
+```
+
+
+
+
+Residents vs. migrants
+```{r}
+ qplot(y = spp.ann.tot,
+      x = Year.cent,
+      color = spp.code,
+      data = dat.PUVI) +
+  geom_line(aes(y = y.hat3, 
+                x = Year.cent,
+                color = spp.code)) +
+  facet_grid(facets = .~status) +
+  theme(legend.position="none")
+```
+
+
+```{r}
+library(arm)
+se.ranef(rand.slopes3)
+```
+
+
+```{r}
+ temp <- qplot(y = spp.ann.tot,
+      x = Year,
+      color = status,
+      data = dat.PUVI) +
+  geom_line(aes(y = y.hat3, 
+                x = Year,
+                color = status)) +
+  facet_wrap(facets =  ~spp.code  ,
+             scales = "free") +
+  theme(legend.position="none") +
+  geom_vline(xintercept = 2003) +
+  geom_vline(xintercept = 2002)
+
+save_plot(temp,filename = "temp.jpeg",base_height = 10)
+```
+
+
+
+
+
+
+
+
+
+
+
+```{r}
+rand.slopes3 <- glmer(spp.ann.tot ~ Year.cent +
+            (Year.cent|spp.code) +
+            (1|Year) +
+            (1|row.effect),
+data = dat.PUVI,
+offset = log(net.hours),
+family = poisson)
+
+summary(rand.slopes3)
+```
+
+

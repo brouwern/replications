@@ -1,0 +1,228 @@
+---
+title: "GLM loop"
+author: "brouwern@gmail.com"
+date: "May 24, 2017"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+
+
+## Load data
+```{r}
+working.dat <- read.csv(file = "./data_Lloyd_PeerJ2016/Lloyd_data_for_regression_5_24_17.csv")
+          
+```
+
+
+## Captures per 1000 net hours
+
+```{r}
+working.dat$caps.per.1K.nethours <- with(working.dat,
+                                         spp.ann.tot/net.hours*1000)
+```
+
+
+## Calc log net hours
+
+```{r}
+working.dat$net.hours.log <- log(working.dat$net.hours)
+
+i.INF <- which(working.dat$net.hours.log == -Inf)
+
+working.dat$net.hours.log[i.INF] <- NA
+
+```
+
+
+
+## Focal species
+```{r}
+focal.spp <- c("NBTO",
+               "RTSO",
+               "BITH",
+               "OVEN",
+               "BTBW",
+               "HHTA",
+               "GTGT",
+               "BCPT",
+               "WCHT",
+               "GABU",
+               "HISP")
+```
+
+
+
+# Loop over species list
+
+
+```{r}
+#Initialize list
+list.focal.spp.mods <- list()
+
+
+for(i in 1:length(focal.spp)){
+  i.use <- which(working.dat$Species == focal.spp[i])
+  print(i)
+  print(focal.spp[i])
+  #print(i.use)
+  
+  
+  mod.null <- glm(spp.ann.tot ~ 1,
+            family = poisson,
+            offset = net.hours.log,
+            data = working.dat[i.use,])
+  
+  mod.yr <-update(mod.null, .~. + Year)
+  mod.loc <-update(mod.null, .~. +       Location)
+  mod.add <-update(mod.null, .~. + Year+ Location)
+  mod.mult <-update(mod.null, .~. +               Year*Location)
+  
+  list.focal.spp.mods[[i]] <- list(null = mod.null,
+                                 yr = mod.yr,
+                                 loc = mod.loc,
+                                 add = mod.add,
+                                 mult = mod.mult)
+  names(list.focal.spp.mods)[[i]] <- focal.spp[i]
+  
+}
+```
+
+
+
+# Model comparison
+
+
+## year only model
+Dataframe for storage
+
+```{r}
+df.yr <- expand.grid(spp = focal.spp,
+                  int = NA,
+                  Year = NA)
+```
+
+
+
+Loop over species to get betas
+```{r}
+
+
+#str(list.focal.spp.mods,2)
+
+for(i in 1:length(focal.spp)){
+  df.yr[i,-1] <- coef(list.focal.spp.mods[[i]]$yr)
+}
+
+
+```
+
+
+
+
+
+## year + site model
+Dataframe for storage
+
+```{r}
+df.add <- expand.grid(spp = focal.spp,
+                  int = NA,
+                  Year = NA,
+                  Loc.PUVI = NA)
+```
+
+
+
+Loop over species to get betas
+```{r}
+
+
+#str(list.focal.spp.mods,2)
+
+for(i in 1:length(focal.spp)){
+  df.add[i,-1] <- coef(list.focal.spp.mods[[i]]$add)
+}
+
+
+```
+
+
+
+
+## year*site model
+Dataframe for storage
+
+```{r}
+df.mult <- expand.grid(spp = focal.spp,
+                  int = NA,
+                  Year = NA,
+                  Loc.PUVI = NA,
+                  YearXloca = NA)
+```
+
+
+
+Loop over species to get betas for year*site model
+```{r}
+
+
+#str(list.focal.spp.mods,2)
+
+for(i in 1:length(focal.spp)){
+  df.mult[i,-1] <- coef(list.focal.spp.mods[[i]]$mult)
+}
+
+
+```
+
+
+
+
+## Combine models output
+
+```{r}
+df.yr$model <- "year"
+df.add$model <- "add"
+df.mult$model <- "mult"
+
+df.yr$Loc.PUVI <- NA
+df.yr$YearXloca <- NA
+
+df.add$YearXloca <- NA
+
+
+
+df2 <- rbind(df.yr,df.add,df.mult)
+
+```
+
+
+
+
+
+Check against published beta
+
+
+
+Load lloyd table 2
+
+```{r}
+orig.reg.coefs <- read.csv(file = "./data_Lloyd_PeerJ2016/Lloyd_regression_coefs.csv")
+```
+
+```{r}
+options(digits=2)
+df3 <- merge(orig.reg.coefs,df2,all = T)
+
+
+df3[,c("spp","Fig","model","B.yr","B.site","Year","YearXloca")]
+#df2[,c(1,2,6,9,10,16.17,18,19)]
+```
+
+
+
+

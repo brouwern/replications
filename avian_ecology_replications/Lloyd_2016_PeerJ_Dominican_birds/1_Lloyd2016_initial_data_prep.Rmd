@@ -1,0 +1,813 @@
+---
+title: "Lloyd 2016 DR Birds: Initial data prep"
+author: "brouwern@gmail.com"
+date: "January 23, 2017"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Introduction
+
+
+* This script loads the raw banding data from Lloyd et al 2016 and prepares it for replicating their analyses
+* Makes Table 2: summary of number of unique individuals captured over course of entire study
+* Makes data to replicate regressions from Lloyd et al 2016 paper
+* THere is extra data in teh spreadsheet; the data for the papers
+    - Excludes 1996
+    - Only uses Jan, Feb and March data
+    - Excludes ~8 records from "non constant effort" banding
+
+
+
+# Clean data
+
+## Load data
+
+```{r}
+#set wd to location of raw data
+my.dir <-  "C:/Users/lisanjie2/Dropbox/GLMM_methods_paper/Lloyd_2016_re_analysis"
+setwd(my.dir)
+
+#load raw data
+dat <- read.csv(file = "./data_Lloyd_PeerJ2016/jlloyd.7.3.csv")
+
+```
+
+
+## Check out data
+```{r}
+dim(dat)
+names(dat)
+```
+
+
+```{r}
+summary(dat$Date)
+```
+
+
+
+## Clean dates
+
+Extract year and month using gsub()
+```{r}
+dat$Year <- gsub("(.*)([12][09][1-90][1-90])","\\2",dat$Date)
+
+dat$Mo <-   gsub("^([1-9])([1-90]{0,1})(.*)","\\1\\2",dat$Date)
+
+
+
+  
+x1 <-   gsub("(.*)([12][09][1-90][1-90])","\\1",dat$Date)
+x2 <-   gsub("^([1-9])([1-90]{0,1})(.*)","\\3",x1)
+
+dat$Day <-   gsub("/","",x2)
+
+
+
+summary(factor(dat$Year))
+summary(factor(dat$Mo))
+```
+
+
+
+### Comments on banding
+
+Look at comments section.  Some birds were re-banded, lost bands, etc.
+
+```{r}
+#"not banded"
+#"died"
+
+dat$Comments[grep("change",dat$Comments)]
+dat$Comments[grep("new",dat$Comments)]
+dat$Comments[grep("added",dat$Comments)]
+dat$Comments[grep("metal",dat$Comments)]
+dat$Comments[grep("band",dat$Comments)]
+
+```
+
+
+### Comments on effort
+
+Some years they did extra banding.  It appears that 8 records are due to this work not associated with their many study goals.
+```{r}
+dat$Comments[grep("effort",dat$Comments)]
+```
+
+Create indicator for non-constant effort samples
+```{r}
+i.nonconstant <- grep("constant",dat$Comments)
+dat$Comments[i.nonconstant]
+dat$effort <- "constant"
+dat$effort[i.nonconstant] <- "nonconst"
+
+```
+
+
+### How many unique bands?
+
+* Table 2 reports 1597 captures of unique birds.  
+* There are 1815 bands; this includes captures from outside the focal years/months
+* Looking at just the focal years and focal months: 1359
+    - Some only color banded
+    - (might have re-used color combos between the 2 sites)
+* After I process the data I get 1518 unique individuals
+
+All unique bands
+```{r}
+length(unique(dat$Metal.Band))
+```
+
+Focal months/years
+```{r}
+i.07.all <- which(dat$Year > 1996 & 
+                #dat$Mo %in% c(1,2,3) &   
+                dat$effort == "constant")
+length(unique(dat$Metal.Band[i.07.all]))
+```
+
+
+
+## Create unique ID
+
+Combine spp, site etc with bands
+
+```{r}
+
+dat$ID <- with(dat, paste(Species, 
+                          Location,
+                          Metal.Band,
+                          Color.bands,
+                          TempMarker, sep = ""))
+
+#remove NAs from string
+dat$ID <- gsub("NA","",dat$ID)
+
+
+length(unique(dat$ID[i.07.all]))
+
+```
+
+How many birds never banded?
+```{r}
+i.noband <- which(dat$ID == dat$Species)
+length(i.noband)
+
+```
+
+
+
+# Create Code for sampling session
+
+In 2007 and 2008 they revisited one site an additional time in March
+
+```{r}
+dat$Session <- 1
+ 
+i.March.07.08 <- with(dat, which(Year %in% c(2007,2008) &
+                Mo == 3))
+
+dat$Session[i.March.07.08] <- 2
+```
+
+
+
+## The "Repeat.New"" column
+
+Repeat.New = "A code indicating if the bird had been previously captured and banded."
+
+* 1 = New, not previously banded
+* 2 = reviously banded
+* 3 = Band destroyed or bird died before release
+* 4 = Not banded
+
+
+
+
+# Examine some details of data
+
+
+## "HILC"
+Only occurs once; not in table in text of paper; just double checking data
+```{r}
+dat[which(dat$Species=="HILC"), ]
+```
+
+## RHQD
+Only occurs once; not in table in text of paper; just double checking data
+```{r}
+dat[which(dat$Species=="RHQD"), ]
+```
+
+
+## Examine 2nd march sampling data
+
+```{r}
+summary(dat[i.March.07.08,c("Repeat.New","Species")])
+```
+
+
+
+
+
+# Reshape Data To Make Table 2
+
+* Table 2 shows the total number of UNIQUE individuals
+* They have some inconsistencies in their data coding that make this hard to reproduce, but I can get close
+* KEY: only use  Repeat.New == 1 (2 = recaps)
+
+
+"To minimize the potentially confounding effects of seasonal variation in abundance and bird behavior that may affect capture rate, this analysis does not include data collected during the May, November, and December visits. Resident"
+
+## Species total per year
+
+First, calc total for each species for each year
+
+```{r}
+library(reshape2)
+summary(factor(dat$Date))
+summary(factor(dat$Mo))
+names(dat)
+
+#Subset used for data analysis:
+dat$Year <- as.numeric(dat$Year)
+i.07.ff <- which(dat$Year > 1996 & 
+                dat$Repeat.New == 1 & #exclude ALL recaps
+                dat$Mo %in% c(1,2,3) &  #previous was "!= 11"
+                dat$effort == "constant")
+
+
+cast1 <- dcast(data = dat[i.07.ff,],
+               formula = Species + Year  ~ ID,
+               value.var = "Species",
+               fun.aggregate = length)
+
+dim(cast1)#262 1652? #current = 257 1486
+```
+
+### Recode 0/1
+
+Recode to pres/abs for 
+
+```{r}
+fx01 <- function(x){ifelse(x > 0,1,0)}
+
+cast1[,-c(1:2)] <- apply(cast1[,-c(1:2)],2,fx01)
+
+
+```
+
+Calculate total caps
+```{r}
+ann.tot <- apply(cast1[,-c(1:2)],1,sum)
+ann.tot <- cbind(cast1[,c(1:2)],ann.tot)
+```
+
+
+
+
+
+## Cast to total across years
+```{r}
+      spp.tot <- dcast(data  = ann.tot,
+            formula = Species ~ .,
+            value.var = "ann.tot",
+            fun.aggregate = sum)
+      
+      names(spp.tot)[2] <- "spp.total"
+
+
+```
+
+
+
+## Save table 2
+
+```{r}
+      #save output
+      write.csv(spp.tot, 
+                row.names = F,
+                file = "./output_tables/Lloyd2016_table2_reproduced.csv")
+```
+
+
+
+## Compare original with reproduced table 2
+
+```{r}
+#Load original of table
+Lloyd.table2 <- read.csv(file = "./data_Lloyd_PeerJ2016/Lloyd_table2_CSV.csv")
+
+#fix name in reproduced version
+names(spp.tot)[1] <- "spp"
+
+#merge
+table2.compare <- merge(spp.tot,Lloyd.table2, all = T)
+
+#difference in counts
+table2.compare$diff <- with(table2.compare,
+                            Lloyd.N - spp.total)
+```
+
+
+
+Look at output
+```{r}
+table2.compare[,c("spp","species",
+                  "spp.total","Lloyd.N",
+                  "diff","B.yr")]
+
+sum(table2.compare$spp.total)
+sum(table2.compare$Lloyd.N,na.rm = T)
+
+```
+
+Save merged table   
+```{r}
+write.csv(table2.compare,row.names = F,
+          file = "./output_tables/table2_compare.csv")
+```
+
+
+
+
+
+
+
+
+
+# Reshape Data For Regression Analyses
+
+## Look at months when sampling occured
+```{r}
+table(as.numeric(dat$Mo),dat$Year)
+```
+
+
+## Set up index for working data
+
+* only 1997 and following years
+* only use data from Jan, Feb and March
+* only use constant effort data
+
+**NOTE:** There is a random year when they also sampled in May - look into this (see above)
+
+
+
+
+```{r}
+dat$Year <- as.numeric(dat$Year)
+i.07.all <- which(dat$Year > 1996 & 
+                #dat$Repeat.New == 1 &
+                dat$Mo %in% c(1,2,3) &       #originally dat$Mo != 11 &
+                dat$effort == "constant")
+```
+
+
+Check
+```{r}
+summary(factor(dat$Year)[i.07.all])
+```
+
+
+
+## Cast by Location: PUVI vs. PALO
+
+
+This actually casts by ID...
+
+
+```{r}
+with(dat, table(Session, Mo,Year))
+
+summary(dat$Session)
+summary(factor(dat$Mo))
+summary(factor(dat$Year))
+summary(factor(dat$Session))
+
+with(dat, table(Year,Session))
+```
+
+
+```{r}
+library(reshape2)
+
+cast.by.site <- dcast(data = dat[i.07.all,],
+               formula = Species + Year + Location + Session  ~ ID,
+               value.var = "Species",
+               fun.aggregate = length)
+
+
+dim(cast.by.site)
+
+#df is very wide b/c there is a row for each individual!
+```
+
+
+```{r}
+summary(factor(cast.by.site$Year))
+summary(factor(cast.by.site$Session))
+
+with(cast.by.site, table(Year,Session,Location))
+
+```
+
+
+
+Recode 0/1
+
+this allows total count of unique individuals to be determined
+
+```{r}
+fx01 <- function(x){ifelse(x > 0,1,0)}
+names(cast.by.site)[1:5]
+cast.by.site[,-c(1:4)] <- apply(cast.by.site[,-c(1:4)],2,fx01)
+
+
+```
+
+
+
+```{r}
+summary(factor(cast.by.site$Year))
+dim(cast.by.site)
+```
+
+
+
+
+Calcualte total captured for a given year w/in a site
+```{r}
+spp.ann.tot <- apply(cast.by.site[,-c(1:4)],1,sum)
+length(spp.ann.tot)
+```
+
+```{r}
+spp.ann.tot <- cbind(cast.by.site[,c(1:4)],
+                     spp.ann.tot)
+dim(spp.ann.tot)
+
+summary(factor(spp.ann.tot$Year))
+```
+
+
+
+Check
+```{r}
+length(unique(spp.ann.tot$Species))
+unique(spp.ann.tot$Year)
+
+
+with(spp.ann.tot, table(Year,Session,Location))
+
+
+```
+
+
+
+
+
+
+# Add years when no birds were caught
+
+Note that in its current format,  there is a row of data ONLY if a species was captured at least once - there are no zeros for the year it wasn't captured
+```{r}
+summary(spp.ann.tot$spp.ann.tot ) #min value == 1
+```
+
+
+Need to add zeros.  First, make a dataframe that has a row for every species for every year for both sites.  We'll use the handy expand.grid() functions will make all combinations of species-locations-years
+
+```{r}
+all.spp <- unique(spp.ann.tot$Species)
+length(all.spp)
+
+
+Location <- unique(spp.ann.tot$Location)
+
+#remove bad location
+Location <- as.character(Location[-3])
+
+
+Year <- unique(spp.ann.tot$Year)[order(unique(spp.ann.tot$Year))]
+
+
+#session 1
+empty.datframe.sess1 <- expand.grid(Species = all.spp,
+                              Year = Year,
+                              Location = Location,
+                              Session = 1)
+
+length(all.spp)*length(Year)*length(Location)
+with(empty.datframe.sess1,
+     table(Year, Location))
+
+#session 2
+## a 2nd sampling sessions occured at PUVI in March in just these 2 years
+empty.datframe.sess2 <- expand.grid(Species = all.spp,
+                              Year = c(2007,
+                                       2008),
+                              Location = "PUVI",
+                              Session = 2)
+
+
+dim(empty.datframe.sess1)  #884 4
+dim(empty.datframe.sess2)  #68 4
+
+empty.datframe <- rbind(empty.datframe.sess1,
+                              empty.datframe.sess2)
+
+dim(empty.datframe) #952 4
+
+#952 = 884 + 68
+```
+
+
+There are 884 species-year-site combinations.  There is extra stuff for sessions 2
+```{r}
+length(all.spp)*length(Location)*length(Year)  #884
+
+
+```
+
+
+Merge the real data with the "empty dataframe.  First, I'll show a problematic merge, then I'll correct it
+
+
+```{r}
+    bad.merge <- merge(spp.ann.tot,empty.datframe)
+```
+
+
+The orignal and new dataframes are the same size; rows have not been inserted where there are currently zeros
+```{r}
+    dim(bad.merge)
+    dim(spp.ann.tot)
+```
+
+
+
+Add "all = T" to insert NAs into the dataframe where there currently are no entries (ie, years when a species wans't captured currently don't occur)
+```{r}
+spp.ann.tot.b <- merge(spp.ann.tot,
+                   empty.datframe,
+                   all = T)
+
+dim(spp.ann.tot.b)
+```
+
+
+Check the size; its now as big as the "empty.datafrme"
+```{r}
+dim(spp.ann.tot.b)
+
+summary(factor(spp.ann.tot.b$Session))
+
+with(spp.ann.tot.b,table(Year, Session,Location))
+
+
+
+summary(spp.ann.tot.b)
+```
+
+
+
+
+
+# Change NAs to zeros
+
+
+
+There now should be NAs inserted into the abundance column in years when a species wasn't observed at a particular site
+```{r}
+summary(spp.ann.tot.b$spp.ann.tot)
+```
+
+
+Convert those NAs to zeros
+```{r}
+i.NA <- which(is.na(spp.ann.tot.b$spp.ann.tot) == TRUE)
+spp.ann.tot.b[i.NA,"spp.ann.tot"] <- 0
+```
+
+
+Check that zeros have been added
+```{r}
+summary(spp.ann.tot.b$spp.ann.tot)
+```
+
+
+
+```{r}
+summary(factor(spp.ann.tot.b$Year))
+
+with(spp.ann.tot.b,
+     table(Year,Session))
+
+with(spp.ann.tot.b,
+     table(Year,Session,Location))
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+## Load effort data
+
+From Table 1 in Lloyd et al 2016.  Note that for 2007 and 2009 there were additional sampling sessions in March for one Location
+
+```{r}
+effort <- read.csv(file = "./data_Lloyd_PeerJ2016/Lloyd_table1_effort.csv")
+
+```
+
+
+
+
+## Merge count data and effort
+```{r}
+#remove stray NA
+
+# i.NA <- which(spp.ann.tot.b$Location == "")
+# spp.ann.tot.b <- spp.ann.tot.b[-i.NA,]
+
+spp.ann.tot.b$Location <- factor(as.character(spp.ann.tot.b$Location))
+
+
+#merge data
+spp.ann.tot2<- merge(spp.ann.tot.b,
+                     effort,
+                     all = T)
+
+
+dim(spp.ann.tot.b) == dim(spp.ann.tot2)
+
+dim(spp.ann.tot.b) 
+dim(spp.ann.tot2)
+summary(spp.ann.tot2)
+
+```
+
+NOTE: things don't line up perfectly b/c of 2 years with zero effort and a few random NAs 
+
+
+
+Remove date column
+```{r}
+i.date.col <- which(names(spp.ann.tot2) == "date")
+spp.ann.tot2 <- spp.ann.tot2[,-i.date.col]
+```
+
+
+
+
+
+
+```{r}
+with(spp.ann.tot2, 
+     table(Year, Location))
+```
+
+
+
+```{r}
+i.PALO <- which(spp.ann.tot2$Location == "PALO")
+
+with(spp.ann.tot2[i.PALO,], 
+     table(Year, Location))
+
+```
+
+
+# Remove bad location
+
+```{r}
+i.bad.loc <- which(spp.ann.tot2$Location == "")
+
+spp.ann.tot2 <- spp.ann.tot2[-i.bad.loc,]
+```
+
+
+
+#Set abundance of NA when net hours = 0
+```{r}
+i.net.zero <- which(spp.ann.tot2$net.hours == 0)
+
+spp.ann.tot2$spp.ann.tot[i.net.zero] <- NA
+```
+
+
+
+# Save final cleaned data
+
+```{r}
+write.csv(spp.ann.tot2, row.names = F,
+          file = "./data_Lloyd_PeerJ2016/Lloyd_data_for_regression_5_24_17.csv")
+```
+
+
+
+
+
+
+
+#
+
+
+
+
+
+```{r}
+spp.ann.tot2[which(spp.ann.tot2$Species == "GTGT" &
+                     spp.ann.tot2$Location == "PUVI"), ]
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+```{r}
+
+
+spp.ann.tot2[which(spp.ann.tot2$Species == "WEWA" & spp.ann.tot2$spp.ann.tot > 0),]
+
+```
+
+
+
+
+Recaps per year
+
+```{r}
+dat[which(dat$Species == "WEWA"),]
+
+i.WEWA <- which(dat$Species == "WEWA" & dat$Year > 1996 & 
+                dat$Repeat.New == 1 & #exclude ALL recaps
+                dat$Mo %in% c(1,2,3) &  #previous was "!= 11"
+                dat$effort == "constant")
+
+cast.WEWA <- dcast(data = dat[i.WEWA,],
+               formula = Species + Year  ~ ID,
+               value.var = "Species",
+               fun.aggregate = length)
+
+```
+
+
+
+### Recode 0/1
+
+Recode to pres/abs for 
+
+```{r}
+fx01 <- function(x){ifelse(x > 0,1,0)}
+
+cast.WEWA[,-c(1:2)] <- apply(cast.WEWA[,-c(1:2)],2,fx01)
+
+
+```
+
+Calculate total caps
+```{r}
+ann.tot.WEWA <- apply(cast.WEWA[,-c(1:2)],1,sum)
+ann.tot.WEWA <- cbind(cast.WEWA[,c(1:2)],ann.tot.WEWA)
+```
+
+
+
+
+## Cast to total across years
+```{r}
+spp.tot.WEWA <- dcast(data  = ann.tot.WEWA,
+      formula = Species ~ .,
+      value.var = "ann.tot.WEWA",
+      fun.aggregate = sum)
+
+names(spp.tot.WEWA)[2] <- "spp.total"
+
+
+```

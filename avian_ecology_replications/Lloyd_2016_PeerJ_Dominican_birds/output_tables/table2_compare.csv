@@ -1,0 +1,34 @@
+"spp","spp.total","i.lloyd","species","latin","Lloyd.N","type","Fig","B.yr","B.site","B.yrXsite","p.yr","R2","B.yr.drop.97","p.yr.drop.97","diff"
+"AMRE",3,21,"American Redstart","Setophaga ruticilla",3,"neo","",NA,NA,NA,"",NA,NA,"",0
+"BANA",4,26,"Banaquit","Coereba flaveola",4,"","",NA,NA,NA,"",NA,NA,"",0
+"BAWW",28,17,"Black-and-white Warbler","Mniotilta varia",28,"neo","",NA,NA,NA,"",NA,NA,"",0
+"BCPT",77,27,"Black-crowned Palm-Tanager","Phaenicophilus palmarum",77,"endem","none",-0.028,NA,NA,"0.3",NA,NA,"",0
+"BFGR",28,30,"Black-faced Grassquit","Tiaris bicolor",28,"","",NA,NA,NA,"",NA,NA,"",0
+"BITH",129,11,"Bicknell’s Thrush","Catharus bicknelli",149,"neo","none",-0.003,NA,NA,"0.87",NA,NA,"",20
+"BTBW",81,22,"Black-throated Blue Warbler","Setophaga caerulescens",83,"neo","none",0.013,NA,NA,"0.633",NA,NA,"",2
+"COYE",2,20,"Common Yellowthroat","Geothlypis trichas",2,"neo","",NA,NA,NA,"",NA,NA,"",0
+"GABU",82,31,"Greater Antillean Bullfinch","Loxigilla violacea",86,"","Fig3",-0.05,NA,NA,"0.02",0.47,NA,"",4
+"GAEL",28,9,"Greater Antillean Elaenia","Elaenia fallax",29,"","",NA,NA,NA,"",NA,NA,"",1
+"GRCA",1,14,"Gray Catbird","Dumetella carolinensis",1,"neoQ","",NA,NA,NA,"",NA,NA,"",0
+"GTGT",219,25,"Green-tailed Ground-Tanager","Microligea palustris",245,"endem","Fig2",-0.07,NA,NA,"<0.001",0.76,NA,"",26
+"HHTA",62,24,"Hispaniolan Highland-Tanager","Xenoligea montana",69,"endem","Fig4",-0.23,-418.8,0.21,"<0.001",0.38,-0.05,"0.12",7
+"HIEM",49,4,"Hispaniolan Emerald","Chlorostilbon swainsonii",47,"endem","",NA,NA,NA,"",NA,NA,"",-2
+"HIPE",37,8,"Hispaniolan Pewee","Contopus hispaniolensis",43,"endem","",NA,NA,NA,"",NA,NA,"",6
+"HIPK",1,3,"Hispaniolan Parakeet","Psittacara chloropterus",1,"endem","",NA,NA,NA,"",NA,NA,"",0
+"HISP",83,29,"Hispaniolan Spindalis","Spindalis dominicensis",85,"endem","none",0.009,NA,NA,"0.72",NA,NA,"",2
+"HITR",10,7,"Hispaniolan Trogon","Priotelus roseigaster",10,"endem","",NA,NA,NA,"",NA,NA,"",0
+"HIWO",22,6,"Hispaniolan Woodpecker","Melanerpes striatus",22,"endem","",NA,NA,NA,"",NA,NA,"",0
+"KEWA",1,19,"Kentucky Warbler","Geothlypis formosa",1,"neo","",NA,NA,NA,"",NA,NA,"",0
+"LATH",21,12,"La Selle Thrush","Turdus swalesi",22,"","",NA,NA,NA,"",NA,NA,"",1
+"MYWA",10,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA
+"NBTO",131,5,"Narrow-billed Tody","Todus angustirostris",140,"endem","none",0.02,NA,NA,"0.3",NA,NA,"",9
+"OVEN",159,15,"Ovenbird","Seiurus aurocapilla",162,"neo","none",0.004,NA,NA,"0.78",NA,NA,"",3
+"PIWA",1,23,"Pine Warbler","Setophaga pinus",1,"neo","",NA,NA,NA,"",NA,NA,"",0
+"RLTH",28,13,"Red-legged Thrush","Turdus plumbeus",31,"","",NA,NA,NA,"",NA,NA,"",3
+"RNPI",2,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA
+"RTSO",126,10,"Rufous-throated Solitaire","Myadestes genibarbis",126,"","Fig1",-0.04,NA,NA,"0.04",0.3,NA,"",0
+"SSHA",12,1,"Sharp-shinned Hawk","Accipiter striatus",12,"neoQ","",NA,NA,NA,"",NA,NA,"",0
+"SWWA",5,18,"Swainson’s Warbler","Limnothlypis swainsonii",7,"neo","",NA,NA,NA,"",NA,NA,"",2
+"WCHT",66,28,"Western Chat-Tanager","Calyptophilus tertius",72,"endem","Fig5",-0.1,-245.1,0.122,"0.008",0.3,NA,">0.05",6
+"WEWA",3,16,"Worm-eating Warbler","Helmitheros vermivorum",4,"neo","",NA,NA,NA,"",NA,NA,"",1
+"WFQD",7,2,"White-fronted Quail-Dove","Geotrygon leucometopia",7,"endem","",NA,NA,NA,"",NA,NA,"",0

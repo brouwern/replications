@@ -1,0 +1,229 @@
+---
+title: "Lloyd_July18_2017"
+author: "Emily Scott"
+date: "July 18, 2017"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Load data & look at data
+```{r}
+# Load data
+setwd("C:/Users/emily/Dropbox/GLMM_methods_paper/Lloyd_2016_re_analysis/data_Lloyd_PeerJ2016")
+lloyd.data <- read.csv(file = "jlloyd.7.3_subset.csv")
+
+# Look at data
+head(lloyd.data)
+```
+
+## Remove fat column and data containing NAs
+```{r}
+# Remove fat column
+lloyd.data2 <- lloyd.data[ , -6]
+
+# Remove data containing NAs
+lloyd.data3 <- na.exclude(lloyd.data2)
+```
+
+## Add column with Julian date
+```{r}
+lloyd.data3$date2 <- as.Date(lloyd.data3$Date, format = "%m/%d/%Y")
+lloyd.data3$date3 <- format(lloyd.data3$date2, "%j")
+```
+
+## Prepare data for subsetting and individual regressions
+```{r}
+## Look at how many occurrences of each species
+spp.summary <- summary(lloyd.data3$Species)
+
+## Remove species only captured once
+i.delete <- which(spp.summary < 3)
+
+## Update spp.summary
+spp.summary <- spp.summary[-i.delete]
+
+## Create list of species codes
+spp.list <- names(spp.summary)
+```
+
+## Create subsets and run regressions
+```{r}
+for (i in 1:length(spp.list))
+{
+  # Find all occurrences of current species
+  i.current <- which(lloyd.data3$Species == spp.list[i])
+  
+  # Save subset of data
+  assign(spp.list[i], lloyd.data3[i.current,])
+  
+  # Run regression for current species
+  assign(paste("lm", spp.list[i], sep = "."),
+         lm(Wing ~ Weight, data = lloyd.data3[i.current,]))
+}
+```
+
+## Store residuals
+```{r}
+AMRE$resid <- lm.AMRE$residuals
+BANA$resid <- lm.BANA$residuals
+BAWW$resid <- lm.BAWW$residuals
+BCPT$resid <- lm.BCPT$residuals
+BFGR$resid <- lm.BFGR$residuals
+BITH$resid <- lm.BITH$residuals
+BTBW$resid <- lm.BTBW$residuals
+COYE$resid <- lm.COYE$residuals
+GABU$resid <- lm.GABU$residuals
+GAEL$resid <- lm.GAEL$residuals
+GTGT$resid <- lm.GTGT$residuals
+HHTA$resid <- lm.HHTA$residuals
+HIEM$resid <- lm.HIEM$residuals
+HIPE$resid <- lm.HIPE$residuals
+HITR$resid <- lm.HITR$residuals
+HIWO$resid <- lm.HIWO$residuals
+LATH$resid <- lm.LATH$residuals
+MYWA$resid <- lm.MYWA$residuals
+NBTO$resid <- lm.NBTO$residuals
+OVEN$resid <- lm.OVEN$residuals
+RLTH$resid <- lm.RLTH$residuals
+RTSO$resid <- lm.RTSO$residuals
+SSHA$resid <- lm.SSHA$residuals
+SWWA$resid <- lm.SWWA$residuals
+WCHT$resid <- lm.WCHT$residuals
+WEWA$resid <- lm.WEWA$residuals
+WFQD$resid <- lm.WFQD$residuals
+```
+
+## Add rainfall data
+```{r}
+## Load rainfall data
+setwd()
+file. <- "pedernales_rainfall_daily_data.csv"
+rain <- read.csv(file = file.)
+
+
+## Edit "date" format in rainfall data so it's DD/MM/YYYY
+rain$date3 <- with(rain,
+                   paste(day, mo.num, year, sep = "/"))
+
+
+## Reformat month so that instead of e.g. MM = 1 for January, it's now MM = 01
+rain$date4 <- gsub("([//])([1-9])([//])","\\10\\2\\3", rain$date3)
+
+
+## Convert to date format
+rain$date4 <- as.Date(rain$date4, format = "%d/%m/%Y")
+```
+
+## Plot residuals vs Julian date
+```{r}
+library(lubridate)
+BITH$yr <- year(BITH$date2)
+rain2$month <- month(rain2$date4)
+
+BITH$date3 <- as.numeric(BITH$date3)
+BITH$date.cnt <- c(BITH$date3-274)
+index <- which(BITH$date.cnt < 0)
+BITH[index, ]$date.cnt <- c(BITH[index, ]$date3+91)
+
+
+ggplot(data = BITH,
+       aes(x = date.cnt, y = resid)) +
+  #facet_wrap(~yr, scales = "free") +
+  geom_point(aes(color = yr)) +
+  geom_smooth(method = lm)
+
+lm <- lm(resid ~ date.cnt,
+         data = BITH)
+```
+
+
+```{r}
+
+rain2$julian <- format(rain2$date4, "%j")
+rain2$julian <- as.numeric(rain2$julian)
+rain2$date.cnt <- c(rain2$julian-274)
+index <- which(rain2$date.cnt < 0)
+rain2[index, ]$date.cnt <- c(rain2[index, ]$julian+91)
+
+OVEN$yr <- year(OVEN$date2)
+OVEN$date4 <- OVEN$date2
+
+OVEN$date3 <- as.numeric(OVEN$date3)
+OVEN$date.cnt <- c(OVEN$date3-274)
+index <- which(OVEN$date.cnt < 0)
+OVEN[index, ]$date.cnt <- c(OVEN[index, ]$date3+91)
+
+
+ggplot(data = OVEN)
+
+ggplot(data = OVEN,
+       aes(x = date.cnt, y = resid)) +
+  #facet_wrap(~yr, scales = "free") +
+  geom_point(aes(color = yr)) +
+  geom_smooth(method = lm)
+
+lm <- lm(resid ~ date.cnt,
+         data = OVEN)
+```
+
+```{r}
+for (i in )
+```
+
+
+
+```{r}
+results <- slidingwin(baseline = glm(resid ~ 1, data = BITH),  # Base model
+                      xvar =list(rain = rain2$rainfall),           # Weather variables of interest (can include multiple)
+                      type = "absolute",                       # Absolute time window (other option is "relative")
+                      range = c(12, 0),                        # All weather data from year preceding measurements (56) to no weather data (0)
+                      stat = c("mean"),                        # Mean of NDVI measurements
+                      func = c("lin"),                         # Type of response fits you're interested in
+                      refday = c(24, 3),                       # Last day individual was measured (c(15,1) = Jan 15)
+                      cmissing = "method1",                   # Fill in for missing data points by averaging previous 2 and subsequent 2
+                      cinterval = "week",                     # Interval is bimonthly, but no bimonthly option so try monthly and see what happens
+                      cdate = rain2$date4,                      # Climate date given in clim3$date
+                      bdate = BITH$date2)                      # Bird data date given in biol3$date
+
+
+results2 <- randwin(repeats = 5,
+                    baseline = glm(resid ~ 1, data = BITH),
+                    xvar =list(NDVI = clim2$NDVI),           # Weather variables of interest (can include multiple)
+                    type = "absolute",                       # Absolute time window (other option is "relative")
+                    range = c(12, 0),                        # All weather data from year preceding measurements (56) to no weather data (0)
+                    stat = c("mean"),                        # Mean of NDVI measurements
+                    func = c("lin"),                         # Type of response fits you're interested in
+                    refday = c(24, 3),                       # Last day individual was measured (c(15,1) = Jan 15)
+                    cmissing = "method1",                   # Fill in for missing data points by averaging previous 2 and subsequent 2
+                    cinterval = "month",                     # Interval is bimonthly, but no bimonthly option so try monthly and see what happens
+                    cdate = clim2$date2,                      # Climate date given in clim3$date
+                    bdate = BITH$date2)                      # Bird data date given in biol3$date
+
+
+pvalue(dataset = results[[1]]$Dataset, datasetrand = results2[[1]], metric = "C", sample.size = 86)
+plotweights(results[[1]]$Dataset)
+plotdelta(results[[1]]$Dataset)
+
+
+
+```
+
+
+
+
+
+
+
+
+## Plot wing vs weight regression for all species
+```{r}
+ggplot(data = lloyd.data3,
+       aes(x = Weight,
+       y = Wing)) +
+  facet_wrap(~Species, scales = "free") +
+  geom_point() +
+  geom_smooth(method = "lm")
+```

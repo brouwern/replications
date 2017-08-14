@@ -1,0 +1,248 @@
+---
+title: "Lloyd 2016 DR Birds: Replicate analyses"
+author: "brouwern@gmail.com"
+date: "February 7, 2017"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+```{r}
+working.dat <- read.csv(file = "./data_Lloyd_PeerJ2016/Lloyd_data_for_regression_5_24_17.csv")
+          
+```
+
+
+## Captures per 1000 net hours
+
+```{r}
+working.dat$caps.per.1K.nethours <- with(working.dat,
+                                         spp.ann.tot/net.hours*1000)
+```
+
+
+
+
+## Subset for species 
+
+### Indicies
+```{r}
+# Rufous-throated Solitaire (Myadestes genibarbis)
+i.RTSO <- which(working.dat$Species ==  "RTSO")
+
+#Green-tailed Ground-Tanager (Microligea palustris)
+i.GTGT <- which(working.dat$Species ==  "GTGT")
+
+#Greater Antillean Bullfinch (Loxigilla violacea)
+i.GABU <- which(working.dat$Species ==  "GABU")
+
+#Western Chat-Tanager (Calyptophilus tertius)
+i.WCHT <- which(working.dat$Species ==  "WCHT")
+
+#Hispaniolan Highland-Tanager (Xenoligea montana)
+i.HHTA <- which(working.dat$Species ==  "HHTA")
+
+
+#Narrow-billed Tody	Todus angustirostris
+i.NBTO <- which(working.dat$Species ==  "NBTO")
+
+#	Bicknell's Thrush	Catharus bicknelli
+i.BITH <- which(working.dat$Species ==  "BITH")
+
+#Ovenbird	Seiurus aurocapilla
+i.OVEN	 <- which(working.dat$Species ==  "OVEN")
+
+#	Black-throated Blue Warbler	Setophaga caerulescens
+i.BTBW <- which(working.dat$Species ==  "BTBW")
+
+#	Black-crowned Palm-Tanager	Phaenicophilus palmarum
+i.BCPT <- which(working.dat$Species ==  "BCPT")
+
+#	Hispaniolan Spindalis	Spindalis dominicensis
+i.HISP <- which(working.dat$Species ==  "BCPT")
+```
+ 
+ 
+### Dat subset
+
+```{r}
+rtso <- working.dat[i.RTSO,]
+gtgt <- working.dat[i.GTGT,]
+gabu <- working.dat[i.GABU,]
+wcht <- working.dat[i.WCHT,]
+hhta <- working.dat[i.HHTA,]
+
+nbto <- working.dat[i.NBTO,]
+bith <- working.dat[i.BITH,]
+oven <- working.dat[i.OVEN,]
+btbw <- working.dat[i.BTBW,]
+bcpt <- working.dat[i.BCPT,]
+hisp <- working.dat[i.HISP,]
+
+
+
+```
+
+<br>
+
+
+
+
+# Plot raw data with ggplot
+
+## Figure 1:
+
+* I'm not sure exactly how they made their plot, since the y plot captures/net.hours*1000, but model captures w/log(net.hours) offset
+
+```{r}
+library(cowplot)
+library(ggplot2)
+qplot(y =caps.per.1K.nethours,
+      x = Year,
+      data = rtso) +
+  facet_grid(Species ~ Location, scale  = "free") +
+  geom_smooth(method = "glm", 
+              method.args = list(family = "poisson")) +
+  ggtitle("Lloyd et al 2016 Figure 1: Rufous throated solitaire")
+```
+
+## Figure 1 caption
+"Figure 1 Trends in capture rate of Rufous-throated Solitaire (Myadestes genibarbis). Observed cap- ture rate (dots) of Rufous-throated Solitaire and changes in expected capture rate (solid line; shaded area =95% confidence interval) per 1,000 net-hours at two sites (PALO, Palo de Agua; PUVI, Pueblo Viejo) in montane broadleaf forest of Sierra de Bahoruco, Dominican Republic."
+
+
+<br>
+
+# Model data
+
+## Notes on modeling
+
+Their methods:
+"The predictor variables included year, site, and the interaction between site and year. We considered three models for each species: year only, site+year, and site???year"
+
+For the sake of completeness I'll fit some additional mdoels
+
+
+## Results
+
+* "Capture rates declined over the course of our study for Rufous-throated Solitaire (beta.year = ???0.04, 95% CL= ???0.076,???0.001; P = 0.04; Fig. 1)"
+* "Green-tailed Ground- Tanager (beta.year = ???0.07; 95% CL= -0.092,???0.040; P < 0.001; Fig. 2)"
+* Greater Antillean Bullfinch (beta.year =???0.05; 95% CL=???0.097,???0.009, P =0.02; Fig. 3).
+
+
+## Fit models
+
+* glm() instead of lm()
+* "~ 1" fits null model
+* "family = poisson "
+* "offset = net.hours.log" applies correct for variable effort between years
+
+### Fit null model: NO change over time
+
+* No change over time (no slope)
+* AND no difference between sites (single intercept)
+* They did not fit this model
+
+```{r}
+rtso.null<- glm(spp.ann.tot ~ 1,
+            family = poisson,
+            offset = net.hours.log,
+            data = rtso)
+```
+
+### Fit Location model
+
+* No change over time (no slope)
+* Different mean abundance for each site (different intercepts)
+* One site gets set as the basline and labeled the "INtercept"
+    + Goes in alphabetical order unless you recode things
+    + So PALO is the baseline
+    + This is on the Poisson link scale
+    + need to be transformed
+* The 2nd site is defined as a difference between teh baseline PALO and the 2nd site PUVI.
+    + The model outputs "LocationPUVI".
+    + This is a difference, not an actual intercept
+    + "(Intercept)"+"LocationPUVI" = PUVIs mean abundance
+    + Again, on Poisson link scale
+
+```{r}
+rtso.Loc <- glm(spp.ann.tot ~ Location,
+            family = poisson,
+            offset = net.hours.log,
+            data = rtso)
+```
+
+
+
+### Fit year model
+
+* This was their simplest model
+
+```{r}
+rtso.Year<- glm(spp.ann.tot ~ Year,
+            family = poisson,
+            offset = net.hours.log,
+            data = rtso)
+```
+
+
+### Fit model with year + location
+
+* I often call this an "additive" model, in contrast to a "multiplicative" model which contains an interaction
+* This was their best supported model for most/all species
+
+```{r}
+rtso.add<- glm(spp.ann.tot ~ Year + Location,
+            family = poisson,
+            offset = net.hours.log,
+            data = rtso)
+```
+
+
+
+
+### Fit model with year + location
+
+* I often call this an "multiplicative" model, b/c it contains an interaction term
+* It would also becalled a "full" model b/c it contain all of the terms being considered
+* They also considered models w/ a parameter for intensity of El Nino, but I don't have those data yet.
+* NOt that the 2 versions are equivalent; R can expand out the equation on it wn 
+```{r}
+rtso.mult<- glm(spp.ann.tot ~ Year + Location + Year*Location,
+            family = poisson,
+            offset = net.hours.log,
+            data = rtso)
+
+
+rtso.mult<- glm(spp.ann.tot ~ Year*Location,
+            family = poisson,
+            offset = net.hours.log,
+            data = rtso)
+```
+
+
+
+# Get confidence itnervals for parameters
+```{r}
+confint(rtso.add)
+```
+
+```{r}
+confint(rtso.mult)
+```
+
+
+# Compare all models w/AIC
+
+They did not do this
+
+```{r}
+library(bbmle)
+AICtab(rtso.null,rtso.Loc,rtso.Year,rtso.add,rtso.mult)
+```
+
+
+
+
