@@ -1,0 +1,126 @@
+---
+title: "Determine number of years observed and other meta data"
+author: "brouwern@gmail.com"
+date: "March 21, 2017"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+## Libraries
+```{r}
+library(reshape2)
+```
+
+
+### Load data
+```{r}
+#Main direotry for lloyd project
+d.working <- "/avian_ecology_replications/Lloyd_2016_PeerJ_Dominican_birds/"
+
+#data directory
+d2 <- paste(d.working,
+            "data/data_out", sep = "")
+
+list.files(path = paste(".", d2,sep = ""))
+
+working.dat <- read.my.csv(rel.dir. = d2,
+            file. = "Lloyd_data_cleaned")   
+
+```
+
+
+
+
+
+# Determine how frequently observed
+
+```{r}
+cap.hist <- dcast(data = working.dat,
+                  formula = Location + Species ~ Year,
+                  value.var = "spp.ann.tot",
+                  fun.aggregate = sum)
+```
+
+
+Look at output
+```{r}
+head(cap.hist)
+```
+
+
+Some summary stats
+```{r}
+max.obs <- apply(cap.hist[,-c(1,2)],1,max, na.rm = T)
+min.obs <- apply(cap.hist[,-c(1,2)],1,min, na.rm = T)
+
+```
+
+
+Function to change abundance to 0/1
+```{r}
+zerorows <- function(x){ifelse(x > 1,1,0)}
+```
+
+Change abundance to 0/1
+```{r}
+cap.hist[,-c(1,2)] <- apply(cap.hist[,-c(1,2)],2,zerorows)
+
+head(cap.hist)
+```
+
+
+# Total years obs and other stats
+```{r}
+yrs.obs <- apply(cap.hist[,-c(1,2)],1,sum, 
+                 na.rm = T)
+```
+
+
+Build up dataframe of meta data
+```{r}
+cap.hist$yrs.obs <- yrs.obs
+cap.hist$max.obs <- max.obs
+cap.hist$min.obs <- min.obs
+```
+
+
+
+# Merge "capture history" w/ main dataframe
+
+```{r}
+working.dat2 <- merge(working.dat,
+                      cap.hist[,c(1,2,16:18)], all = F)
+
+dim(working.dat)
+dim(working.dat2)
+```
+
+
+# Save
+
+## Save count data merged with meta data
+
+```{r}
+d. <- paste(".",d.working,"data/data_out",sep = "")
+f. <- paste("./",d.,"/Lloyd_data_cleaned_with_meta.csv", sep = "")
+write.csv(working.dat2, 
+          row.names = F,
+          file = f.)
+```
+
+
+
+## Save meta data
+
+```{r}
+d. <- paste(".",d.working,"data/data_out",sep = "")
+f. <- paste("./",d.,"/Lloyd_meta_data_with_caphist.csv", sep = "")
+write.csv(cap.hist, 
+          row.names = F,
+          file = f.)
+```
+

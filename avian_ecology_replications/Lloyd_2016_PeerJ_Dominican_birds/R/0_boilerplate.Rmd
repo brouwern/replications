@@ -1,0 +1,26 @@
+---
+title: "boilerplate code"
+author: "brouwern@gmail.com"
+date: "August 15, 2017"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+```{r}
+#Main directory for lloyd project
+d.working <- "/avian_ecology_replications/Lloyd_2016_PeerJ_Dominican_birds/"
+
+#data directory
+d2 <- paste(d.working,"data/data_in", sep = "")
+
+#load data
+dat <- read.my.csv(rel.dir. = d2,
+                   file. = "jlloyd.7.3",
+                   extension = "csv")
+
+```
+

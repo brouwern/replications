@@ -1,0 +1,380 @@
+---
+title: "Lloyd 2016 DR Birds: Both Locations GLMM"
+author: "brouwern@gmail.com"
+date: "February 20, 2017"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+## Libraries
+
+```{r}
+library(lme4)
+library(bbmle)
+```
+
+
+##Data setup
+
+### Load data
+```{r}
+#Main direotry for lloyd project
+d.working <- "/avian_ecology_replications/Lloyd_2016_PeerJ_Dominican_birds/"
+
+#data directory
+d2 <- paste(d.working,
+            "data/data_out", sep = "")
+
+list.files(path = paste(".", d2,sep = ""))
+
+working.dat2 <- read.my.csv(rel.dir. = d2,
+            file. = "Lloyd_data_cleaned_with_meta")   
+
+```
+
+
+Log the net hours
+```{r}
+working.working.dat2$net.hours.log <- log(working.working.dat2$net.hours)
+```
+
+
+
+### Load spp info
+
+Not done
+
+* skip = 7 skips the 7 rows of header info in this field
+```{r}
+    # spp.info <- read.csv(file = "Latta_Lloyd_species_list_SLvs1.csv",
+    #                      skip = 7)
+
+```
+
+#### Merge
+
+```{r}
+    # names(working.dat2)[3] <-"spp.code"
+    # 
+    # summary(working.dat2$spp.code)
+    # summary(spp.info$spp.code)
+    # 
+    # 
+    # dat2 <- merge(working.working.dat2, spp.info, by =)
+    # 
+    # dim(dat2)
+    # dim(working.working.dat2)
+    # 
+    # working.working.dat2 <- dat2
+    # 
+    # 
+    # #remove some extra rows
+    # working.working.dat2 <- working.working.dat2[,-c(2,4,6)]
+```
+
+
+* Dataframe should be ~547 rows
+
+
+
+
+### Data subset
+
+Use just species capture > 3 sep years, since you need 3+ points to fit a line.
+
+
+```{r}
+i4plus <- which(working.dat2$yrs.obs > 3)
+
+working.dat3 <- working.dat2[i4plus,]
+ 
+dim(working.dat2)
+dim(working.dat3)
+```
+
+
+
+# GLMM set up
+
+## Set up for GLMM
+
+GLMMs work best when continous covariates are centered.
+
+```{r}
+working.dat2$yr.cnt <- with(working.dat2,
+                               scale(Year,
+                                     scale = F))
+```
+
+
+Poisson models are often overdispered; this can be corrected by including a observation level random effect, which can be made by giving each row of data  unique ID.
+
+See 
+Using observation-level random effects to model overdispersion in count data in ecology and evolution
+XA Harrison - PeerJ, 2014 - peerj.com
+https://peerj.com/articles/616/
+
+```{r}
+working.dat2$row.effect <- 1:dim(working.dat2)[1]
+```
+
+## Order disturbance sensitivty factor
+
+```{r}
+    # working.dat2$sensitivity <- factor(working.dat2$sensitivity,
+    #                                levels = c("L","M","H"))
+```
+
+
+## Order migration "status" factor
+
+```{r}
+    # working.dat2$status <- factor(working.dat2$status,
+    #                                levels = c("res","NEO"))
+```
+
+
+## Overdispersion
+
+
+http://glmm.wikidot.com/faq
+```{r}
+overdisp_fun <- function(model) {
+  ## number of variance parameters in 
+  ##   an n-by-n variance-covariance matrix
+  vpars <- function(m) {
+    nrow(m)*(nrow(m)+1)/2
+  }
+  model.df <- sum(sapply(VarCorr(model),vpars))+length(fixef(model))
+  rdf <- nrow(model.frame(model))-model.df
+  rp <- residuals(model,type="pearson")
+  Pearson.chisq <- sum(rp^2)
+  prat <- Pearson.chisq/rdf
+  pval <- pchisq(Pearson.chisq, df=rdf, lower.tail=FALSE)
+  c(chisq=Pearson.chisq,ratio=prat,rdf=rdf,p=pval)
+}
+```
+
+
+
+
+
+
+
+## Model data
+
+### Models w/ random slopes
+
+```{r}
+m.ranefs.base <- glmer(spp.ann.tot ~ 1 +
+            (1|Year:Location) +
+            (1|Year) +
+            (1|row.effect),
+data = working.dat2,
+offset = log(net.hours),
+family = poisson)
+
+
+
+m.ranslope.spp <- update(m.ranefs.base, . ~ . + 
+                           (     1|Species:Location) +
+                           (yr.cnt|Species) )
+  
+
+m.ranslope.spp.x.site <- update(m.ranefs.base, . ~ . + 
+                           (yr.cnt|Species:Location) +
+                           (     1|Species) )
+
+
+
+
+```
+
+
+
+### Compare models
+
+```{r}
+
+bbmle::AICtab(m.ranefs.base,
+              m.ranslope.spp,
+              m.ranslope.spp.x.site)
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+## Include observation level random effect
+
+
+```{r}
+m1.no.Loc <- glmer(spp.ann.tot ~ 
+                        yr.cnt +
+            (yr.cnt|Species) +
+            (1|Year) +
+            (1|row.effect),
+data = working.dat2,
+offset = log(net.hours),
+family = poisson)
+
+summary(m1.no.Loc)
+```
+
+
+
+
+
+```{r}
+working.dat2$log.net.hours <- with(working.dat2, log(net.hours))
+m1.Loc.ranef <- lmer(spp.ann.tot/log.net.hours ~ 
+                        yr.cnt +
+                     (1|spp.code) +
+            (yr.cnt|spp.code:Location) +
+            (1|Year) +
+            (1|Year:Location), #+
+            #(1|row.effect),
+data = working.dat2#,
+#offset  = log.net.hours,
+#family = poisson
+#
+)
+
+summary(m1.Loc.ranef)
+```
+
+
+# Predictions
+
+expand.grid(
+  spp.code = levels(m1.Loc.ranef@frame$spp.code),
+  Location = levels(m1.Loc.ranef@frame$Location),
+  yr.cnt = range(m1.Loc.ranef@frame$yr.cnt),
+  Year = unique(m1.Loc.ranef@frame$Year)
+  net.hours = 1000
+)
+
+
+```{r}
+
+fake.working.dat2 <- m1.Loc.ranef@frame
+
+summary(fake.working.dat2)
+summary(log(working.dat2$net.hours))
+
+
+#fake.working.dat2$"(offset)" <- 1
+
+y.hat <- predict(m1.Loc.ranef,
+                 newdata =fake.working.dat2,
+                re.form = ~ (1|spp.code) + (yr.cnt|spp.code:Location))
+
+
+summary(y.hat)
+
+
+out <- m1.Loc.ranef@frame
+out$y.hat <- y.hat
+
+
+summary(out$y.hat)
+
+library(ggplot2)
+library(cowplot)
+
+out$spp.ann.tot/exp(out$`(offset)`)*1000
+
+temp <- qplot(y = spp.ann.tot/log.net.hours,
+      x = Year,
+      color = Location,
+      data = out) +
+  geom_line(aes(y = y.hat, 
+                x = Year,
+                color = Location)) +
+  facet_wrap(facets =  ~spp.code  ,
+             scales = "free") +
+  theme(legend.position="none") #+
+  #geom_vline(xintercept = 2003) +
+  #geom_vline(xintercept = 2002)
+
+save_plot(temp,filename = "temp.jpeg",base_height = 10)
+
+
+```
+
+
+
+
+
+
+
+```{r}
+
+```
+
+
+
+
+```{r}
+library(arm)
+se.list <- se.ranef(m1.Loc.ranef)
+str(se.list,1)
+
+se.list[[2]][,"yr.cnt"]
+```
+
+
+
+
+
+
+```{r}
+ranef(m1.Loc.ranef)[2]
+```
+
+
+
+
+
+
+
+
+
+
+
+
+```{r}
+rand.slopes3 <- glmer(spp.ann.tot ~ yr.cnt +
+            (yr.cnt|spp.code) +
+            (1|Year) +
+            (1|row.effect),
+data = working.dat2,
+offset = log(net.hours),
+family = poisson)
+
+summary(rand.slopes3)
+```
+
+
+

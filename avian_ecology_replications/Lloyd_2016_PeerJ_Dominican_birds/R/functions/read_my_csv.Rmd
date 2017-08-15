@@ -1,0 +1,48 @@
+---
+title: "My workflow for saving data"
+author: "brouwern@gmail.com"
+date: "August 15, 2017"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+```{r}
+read.my.csv <- function(rel.dir. = "data/data_in",
+         file. = "dat",
+         extension = ".csv",
+         action = "load"){
+
+library(rprojroot)
+
+## find the "absolute" root of the R project file
+abs.root. <- find_root(is_rstudio_project)
+
+
+## Build name of file name of file
+file.    <- paste(file.,extension,sep = ".")
+
+## remove ".." if necessary
+file. <- gsub("\\.\\.",".", file.)
+
+## remove leading \ from rel.dir if necessary
+rel.dir. <- gsub("^[\\/]","",rel.dir.)
+
+
+## create full file name
+file. <- paste(abs.root.,rel.dir.,file., sep = "/")
+
+## read data
+if(action == "load"){
+  dat.temp <- read.csv(file = file.)
+}
+
+return(dat.temp)
+}
+
+```
+

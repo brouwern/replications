@@ -1,0 +1,265 @@
+---
+title: "GLM loop"
+author: "brouwern@gmail.com"
+date: "May 24, 2017"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+## Load data
+```{r}
+#Main direotry for lloyd project
+d.working <- "/avian_ecology_replications/Lloyd_2016_PeerJ_Dominican_birds/"
+
+#data directory
+d2 <- paste(d.working,
+            "data/data_out", sep = "")
+
+list.files(path = paste(".", d2,sep = ""))
+
+working.dat2 <- read.my.csv(rel.dir. = d2,
+            file. = "Lloyd_data_cleaned_with_meta")       
+```
+
+
+## Calc Captures per 1000 net hours
+
+```{r}
+working.dat2$caps.per.1K.nethours <- with(working.dat2,
+                                         spp.ann.tot/net.hours*1000)
+```
+
+
+## Calc log net hours
+
+In case "Inf" is returned, clean it up; this is no longer and issue and was likely due to an error in data processing.
+
+```{r}
+working.dat2$net.hours.log <- log(working.dat2$net.hours)
+
+i.INF <- which(working.dat2$net.hours.log == -Inf)
+
+working.dat2$net.hours.log[i.INF] <- NA
+
+```
+
+
+
+## Focal species
+
+11 Focal species in original Lloyd et al 2016 paper.  Some have figures, others only discussed in text.
+```{r}
+focal.spp <- c("NBTO",
+               "RTSO",
+               "BITH",
+               "OVEN",
+               "BTBW",
+               "HHTA",
+               "GTGT",
+               "BCPT",
+               "WCHT",
+               "GABU",
+               "HISP")
+
+length(focal.spp)
+```
+
+
+
+## Loop over species list
+
+
+```{r}
+#Initialize list
+list.focal.spp.mods <- list()
+
+
+for(i in 1:length(focal.spp)){
+  i.use <- which(working.dat2$Species == focal.spp[i])
+  
+  print(i)
+  print(focal.spp[i])
+  #print(i.use)
+  
+  
+  # Models
+  ## null model - intercept only
+  mod.null <- glm(spp.ann.tot ~ 1,
+            family = poisson,
+            offset = net.hours.log,
+            data = working.dat2[i.use,])
+  
+  ## year only
+  mod.yr   <-update(mod.null, .~. + Year)
+  
+  ## Location only PALO vs. PUVI 
+  mod.loc  <-update(mod.null, .~. +        Location)
+  
+  ## Additive model
+  mod.add  <-update(mod.null, .~. + Year + Location)
+  
+  ## Multiplicative mdoel
+  mod.mult <-update(mod.null, .~. +               Year*Location)
+  
+  ## compile list of models
+  list.focal.spp.mods[[i]] <- list(null = mod.null,
+                                   yr   = mod.yr,
+                                   loc  = mod.loc,
+                                   add  = mod.add,
+                                   mult = mod.mult)
+  
+  ## add names
+  names(list.focal.spp.mods)[[i]] <- paste(focal.spp[i],
+                                           "poisson",
+                                           sep = ".")
+  
+}
+```
+
+
+
+## Build table of models
+
+For each type of model (year only, year + site, etc) I build a table for the species used and then combine them at the end
+
+
+### year only model
+Dataframe for storage
+
+```{r}
+df.yr <- expand.grid(spp = focal.spp,
+                  NLB.int = NA,
+                  NLB.yr = NA)
+```
+
+Loop over species to get betas
+```{r}
+for(i in 1:length(focal.spp)){
+  df.yr[i,-1] <- coef(list.focal.spp.mods[[i]]$yr)
+}
+
+
+```
+
+
+## year + site model
+
+Dataframe for storage
+```{r}
+df.add <- expand.grid(spp = focal.spp,
+                  NLB.int = NA,
+                  NLB.yr = NA,
+                  NLB.site.PUV = NA) #categorical variable for site
+```
+
+
+
+Loop over species to get betas
+```{r}
+for(i in 1:length(focal.spp)){
+  df.add[i,-1] <- coef(list.focal.spp.mods[[i]]$add)
+}
+
+
+```
+
+
+
+
+## year*site model
+Dataframe for storage
+
+```{r}
+df.mult <- expand.grid(spp = focal.spp,
+                  NLB.int = NA,
+                  NLB.yr = NA,
+                  NLB.site.PUV = NA,#categorical variable for site
+                  NLB.siteXloc = NA)#year x site interaction
+```
+
+
+
+Loop over species to get betas for year*site model
+
+```{r}
+for(i in 1:length(focal.spp)){
+  df.mult[i,-1] <- coef(list.focal.spp.mods[[i]]$mult)
+}
+```
+
+
+
+
+## Combine models output
+
+```{r}
+#annotate with type of model
+df.yr$mod <- "year"
+df.add$mod <- "add"
+df.mult$mod <- "mult"
+
+#add empty columns so all of the dfs match
+df.yr$NLB.site.PUV <- NA
+df.yr$NLB.siteXloc <- NA
+
+df.add$NLB.siteXloc <- NA
+
+#stack dataframes
+df2 <- rbind(df.yr,
+             df.add,
+             df.mult)
+
+```
+
+
+
+
+### Check against published beta
+
+Load Lloyd Table 2
+```{r}
+f. <- paste(".",
+      d.working,
+      "tables/Lloyd_coefs_vs_our_coefs/",
+      "Lloyd_regression_coefs.csv",
+      sep = "")
+
+
+orig.reg.coefs <- read.csv(file =f.)
+
+orig.reg.coefs$modeler <- "Lloyd"
+```
+
+
+
+```{r}
+options(digits=2)
+df2$modeler <- "NLB"
+df3 <- merge(orig.reg.coefs,
+             df2,all = T)
+
+```
+
+
+### Compare outputs
+
+In general my estiamtes are very similar, indicating that I can reproduce their data cleaning workflow and analysis.  However, for 1 species there is a major discrepancy and for 2 more there are minor ones.
+
+* BITH - major discrepancy
+* GTGT - their estimate is 0.01 lower
+* HISP, OVEN = their estimate is 0.001
+
+There are other discrepancies of similar magnitude (0.001 to 0.01) where my estiamtes is lower but these are consistent with them rounding up their parametrs to nearest whole 0.01 or 0.001; that is, I can round my estimate up to get their value.  I consider it more of a problem when my estimate is higher, since their rounding produced an estimate that still wasn't simialr to mine.
+
+```{r}
+df3[,c("spp","Fig","mod",
+       "B.yr","NLB.yr",
+       "B.site","NLB.site.PUV")]
+```
+
+
+

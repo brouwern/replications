@@ -1,5 +1,5 @@
 ---
-title: "Lloyd 2016 DR Birds: Replicate analyses"
+title: "Lloyd 2016 PeerJ Dominican Birds: Data Analysis"
 author: "brouwern@gmail.com"
 date: "February 7, 2017"
 output: html_document
@@ -9,19 +9,43 @@ output: html_document
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
+# Re-Analysis of Lloyd 2016 data
+
+
+## Load Lloyd data
 
 ```{r}
-working.dat <- read.csv(file = "./data_Lloyd_PeerJ2016/Lloyd_data_for_regression_5_24_17.csv")
-          
+spp.ann.tot2 <- read.csv(file = "Lloyd_PeerJ2916_cleaned_data_2_7_2017.csv")
+```
+
+## Look at data
+
+```{r}
+summary(spp.ann.tot2)
+dim(spp.ann.tot2)
 ```
 
 
-## Captures per 1000 net hours
+## Hard code data transformations
+
+### Captures/net.hours.1K
+
+"For the purposes of standardization with other constant-effort mist-netting studies, we report capture rate per 1,000 net hours (i.e., expected captures for every 1,000 h that 12-m net was open)." (page 4)
 
 ```{r}
-working.dat$caps.per.1K.nethours <- with(working.dat,
-                                         spp.ann.tot/net.hours*1000)
+spp.ann.tot2$caps.per.1K.nethours <- with(spp.ann.tot2, spp.ann.tot/net.hours * 1000)
 ```
+
+
+### log(net.hours)
+
+'We accounted for variation in capture effort by using the number of net hours per capture session (log-transformed) as an offset in the model." (page 4)
+
+```{r}
+spp.ann.tot2$net.hours.log <- log(spp.ann.tot2$net.hours)
+```
+
+
 
 
 
@@ -31,59 +55,30 @@ working.dat$caps.per.1K.nethours <- with(working.dat,
 ### Indicies
 ```{r}
 # Rufous-throated Solitaire (Myadestes genibarbis)
-i.RTSO <- which(working.dat$Species ==  "RTSO")
+i.RTSO <- which(spp.ann.tot2$Species ==  "RTSO")
 
 #Green-tailed Ground-Tanager (Microligea palustris)
-i.GTGT <- which(working.dat$Species ==  "GTGT")
+i.GTGT <- which(spp.ann.tot2$Species ==  "GTGT")
 
 #Greater Antillean Bullfinch (Loxigilla violacea)
-i.GABU <- which(working.dat$Species ==  "GABU")
+i.GABU <- which(spp.ann.tot2$Species ==  "GABU")
 
 #Western Chat-Tanager (Calyptophilus tertius)
-i.WCHT <- which(working.dat$Species ==  "WCHT")
+i.WCHT <- which(spp.ann.tot2$Species ==  "WCHT")
 
 #Hispaniolan Highland-Tanager (Xenoligea montana)
-i.HHTA <- which(working.dat$Species ==  "HHTA")
-
-
-#Narrow-billed Tody	Todus angustirostris
-i.NBTO <- which(working.dat$Species ==  "NBTO")
-
-#	Bicknell's Thrush	Catharus bicknelli
-i.BITH <- which(working.dat$Species ==  "BITH")
-
-#Ovenbird	Seiurus aurocapilla
-i.OVEN	 <- which(working.dat$Species ==  "OVEN")
-
-#	Black-throated Blue Warbler	Setophaga caerulescens
-i.BTBW <- which(working.dat$Species ==  "BTBW")
-
-#	Black-crowned Palm-Tanager	Phaenicophilus palmarum
-i.BCPT <- which(working.dat$Species ==  "BCPT")
-
-#	Hispaniolan Spindalis	Spindalis dominicensis
-i.HISP <- which(working.dat$Species ==  "BCPT")
+i.HHTA <- which(spp.ann.tot2$Species ==  "HHTA")
 ```
  
  
 ### Dat subset
 
 ```{r}
-rtso <- working.dat[i.RTSO,]
-gtgt <- working.dat[i.GTGT,]
-gabu <- working.dat[i.GABU,]
-wcht <- working.dat[i.WCHT,]
-hhta <- working.dat[i.HHTA,]
-
-nbto <- working.dat[i.NBTO,]
-bith <- working.dat[i.BITH,]
-oven <- working.dat[i.OVEN,]
-btbw <- working.dat[i.BTBW,]
-bcpt <- working.dat[i.BCPT,]
-hisp <- working.dat[i.HISP,]
-
-
-
+rtso <- spp.ann.tot2[i.RTSO,]
+gtgt <- spp.ann.tot2[i.GTGT,]
+gabu <- spp.ann.tot2[i.GABU,]
+wcht <- spp.ann.tot2[i.WCHT,]
+hhta <- spp.ann.tot2[i.HHTA,]
 ```
 
 <br>
@@ -98,15 +93,14 @@ hisp <- working.dat[i.HISP,]
 * I'm not sure exactly how they made their plot, since the y plot captures/net.hours*1000, but model captures w/log(net.hours) offset
 
 ```{r}
-library(cowplot)
+
 library(ggplot2)
 qplot(y =caps.per.1K.nethours,
       x = Year,
       data = rtso) +
   facet_grid(Species ~ Location, scale  = "free") +
   geom_smooth(method = "glm", 
-              method.args = list(family = "poisson")) +
-  ggtitle("Lloyd et al 2016 Figure 1: Rufous throated solitaire")
+              method.args = list(family = "poisson"))
 ```
 
 ## Figure 1 caption
@@ -154,7 +148,7 @@ rtso.null<- glm(spp.ann.tot ~ 1,
 
 ### Fit Location model
 
-* No change over time (no slope)
+* No chagne over time (no slope)
 * Different mean abundance for each site (different intercepts)
 * One site gets set as the basline and labeled the "INtercept"
     + Goes in alphabetical order unless you recode things
@@ -229,10 +223,6 @@ rtso.mult<- glm(spp.ann.tot ~ Year*Location,
 confint(rtso.add)
 ```
 
-```{r}
-confint(rtso.mult)
-```
-
 
 # Compare all models w/AIC
 
@@ -242,7 +232,5 @@ They did not do this
 library(bbmle)
 AICtab(rtso.null,rtso.Loc,rtso.Year,rtso.add,rtso.mult)
 ```
-
-
 
 

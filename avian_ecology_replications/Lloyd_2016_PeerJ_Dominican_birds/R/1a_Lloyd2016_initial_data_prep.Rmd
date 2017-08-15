@@ -9,35 +9,53 @@ output: html_document
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-# Introduction
+## Introduction
 
 
 * This script loads the raw banding data from Lloyd et al 2016 and prepares it for replicating their analyses
 * Makes Table 2: summary of number of unique individuals captured over course of entire study
 * Makes data to replicate regressions from Lloyd et al 2016 paper
-* THere is extra data in teh spreadsheet; the data for the papers
+* NB: THere is extra data in the raw data provided by Lloyd; the data actually used fro the for the papers
     - Excludes 1996
     - Only uses Jan, Feb and March data
     - Excludes ~8 records from "non constant effort" banding
+* As of 8/15/2017 I can replciate most but not all of their regression coefficients in the paper.    
+
+### Citation
+
+Lloyd et al. 2016.  Assessing conservation status of resident and migrant birds on Hispaniola with mist-netting.  PeerJ.  https://peerj.com/articles/1541/
 
 
+## Preliminaries 
 
-# Clean data
+### Load Libraries
+```{r}
+library(reshape2)
+library(rprojroot)
+```
 
-## Load data
+
+## Clean data
+
+### Load data
 
 ```{r}
-#set wd to location of raw data
-my.dir <-  "C:/Users/lisanjie2/Dropbox/GLMM_methods_paper/Lloyd_2016_re_analysis"
-setwd(my.dir)
+#Main direotry for lloyd project
+d.working <- "/avian_ecology_replications/Lloyd_2016_PeerJ_Dominican_birds/"
 
-#load raw data
-dat <- read.csv(file = "./data_Lloyd_PeerJ2016/jlloyd.7.3.csv")
+#data directory
+d2 <- paste(d.working,"data/data_in", sep = "")
+
+#load data
+dat <- read.my.csv(rel.dir. = d2,
+                   file. = "jlloyd.7.3",
+                   extension = "csv")
 
 ```
 
 
-## Check out data
+### Check out data
+
 ```{r}
 dim(dat)
 names(dat)
@@ -50,7 +68,7 @@ summary(dat$Date)
 
 
 
-## Clean dates
+### Clean dates
 
 Extract year and month using gsub()
 ```{r}
@@ -132,7 +150,7 @@ length(unique(dat$Metal.Band[i.07.all]))
 
 
 
-## Create unique ID
+### Create unique ID for each bird
 
 Combine spp, site etc with bands
 
@@ -161,7 +179,7 @@ length(i.noband)
 
 
 
-# Create Code for sampling session
+### Create Code for sampling session
 
 In 2007 and 2008 they revisited one site an additional time in March
 
@@ -188,23 +206,23 @@ Repeat.New = "A code indicating if the bird had been previously captured and ban
 
 
 
-# Examine some details of data
+## Examine some details of data
 
 
-## "HILC"
-Only occurs once; not in table in text of paper; just double checking data
+### "HILC"
+Only occurs once; not in Table 2 in text of paper; just double checking data
 ```{r}
 dat[which(dat$Species=="HILC"), ]
 ```
 
-## RHQD
-Only occurs once; not in table in text of paper; just double checking data
+### RHQD
+Only occurs once; not in Table 2in text of paper; just double checking data
 ```{r}
 dat[which(dat$Species=="RHQD"), ]
 ```
 
 
-## Examine 2nd march sampling data
+### Examine 2nd march sampling data
 
 ```{r}
 summary(dat[i.March.07.08,c("Repeat.New","Species")])
@@ -214,7 +232,7 @@ summary(dat[i.March.07.08,c("Repeat.New","Species")])
 
 
 
-# Reshape Data To Make Table 2
+## Make Table 2
 
 * Table 2 shows the total number of UNIQUE individuals
 * They have some inconsistencies in their data coding that make this hard to reproduce, but I can get close
@@ -223,12 +241,11 @@ summary(dat[i.March.07.08,c("Repeat.New","Species")])
 
 "To minimize the potentially confounding effects of seasonal variation in abundance and bird behavior that may affect capture rate, this analysis does not include data collected during the May, November, and December visits. Resident"
 
-## Species total per year
+### Species total per year
 
 First, calc total for each species for each year
 
 ```{r}
-library(reshape2)
 summary(factor(dat$Date))
 summary(factor(dat$Mo))
 names(dat)
@@ -271,7 +288,7 @@ ann.tot <- cbind(cast1[,c(1:2)],ann.tot)
 
 
 
-## Cast to total across years
+### Cast to total across years
 ```{r}
       spp.tot <- dcast(data  = ann.tot,
             formula = Species ~ .,
@@ -288,48 +305,53 @@ ann.tot <- cbind(cast1[,c(1:2)],ann.tot)
 ## Save table 2
 
 ```{r}
-      #save output
-      write.csv(spp.tot, 
-                row.names = F,
-                file = "./output_tables/Lloyd2016_table2_reproduced.csv")
+#file name
+f. <- "./avian_ecology_replications/Lloyd_2016_PeerJ_Dominican_birds/tables/table2/Lloyd2016_table2_reproduced.csv"
+
+#save output
+write.csv(spp.tot,
+          row.names = F,
+                file = f.)
 ```
 
 
 
 ## Compare original with reproduced table 2
 
+Not implemented; previous version of spreadsheet in /tables folder.
+
 ```{r}
-#Load original of table
-Lloyd.table2 <- read.csv(file = "./data_Lloyd_PeerJ2016/Lloyd_table2_CSV.csv")
-
-#fix name in reproduced version
-names(spp.tot)[1] <- "spp"
-
-#merge
-table2.compare <- merge(spp.tot,Lloyd.table2, all = T)
-
-#difference in counts
-table2.compare$diff <- with(table2.compare,
-                            Lloyd.N - spp.total)
+    # #Load original of table
+    # Lloyd.table2 <- read.csv(file = "./data_Lloyd_PeerJ2016/Lloyd_table2_CSV.csv")
+    # 
+    # #fix name in reproduced version
+    # names(spp.tot)[1] <- "spp"
+    # 
+    # #merge
+    # table2.compare <- merge(spp.tot,Lloyd.table2, all = T)
+    # 
+    # #difference in counts
+    # table2.compare$diff <- with(table2.compare,
+    #                             Lloyd.N - spp.total)
 ```
 
 
 
 Look at output
 ```{r}
-table2.compare[,c("spp","species",
-                  "spp.total","Lloyd.N",
-                  "diff","B.yr")]
-
-sum(table2.compare$spp.total)
-sum(table2.compare$Lloyd.N,na.rm = T)
+# table2.compare[,c("spp","species",
+#                   "spp.total","Lloyd.N",
+#                   "diff","B.yr")]
+# 
+# sum(table2.compare$spp.total)
+# sum(table2.compare$Lloyd.N,na.rm = T)
 
 ```
 
 Save merged table   
 ```{r}
-write.csv(table2.compare,row.names = F,
-          file = "./output_tables/table2_compare.csv")
+# write.csv(table2.compare,row.names = F,
+#           file = "./output_tables/table2_compare.csv")
 ```
 
 
@@ -340,24 +362,21 @@ write.csv(table2.compare,row.names = F,
 
 
 
-# Reshape Data For Regression Analyses
+## Reshape Data For Regression Analyses
 
-## Look at months when sampling occured
+### Look at months when sampling occured
 ```{r}
 table(as.numeric(dat$Mo),dat$Year)
 ```
 
 
-## Set up index for working data
+### Set up index for working data
 
 * only 1997 and following years
 * only use data from Jan, Feb and March
 * only use constant effort data
 
 **NOTE:** There is a random year when they also sampled in May - look into this (see above)
-
-
-
 
 ```{r}
 dat$Year <- as.numeric(dat$Year)
@@ -375,11 +394,9 @@ summary(factor(dat$Year)[i.07.all])
 
 
 
-## Cast by Location: PUVI vs. PALO
+### "Cast by Location: PUVI vs. PALO""
 
-
-This actually casts by ID...
-
+This actually casts by ID... not sure why discrepencay in how I describe it and what I did, so I put the title in " "
 
 ```{r}
 with(dat, table(Session, Mo,Year))
@@ -394,7 +411,6 @@ with(dat, table(Year,Session))
 
 
 ```{r}
-library(reshape2)
 
 cast.by.site <- dcast(data = dat[i.07.all,],
                formula = Species + Year + Location + Session  ~ ID,
@@ -418,7 +434,7 @@ with(cast.by.site, table(Year,Session,Location))
 
 
 
-Recode 0/1
+### Recode 0/1
 
 this allows total count of unique individuals to be determined
 
@@ -440,7 +456,7 @@ dim(cast.by.site)
 
 
 
-Calcualte total captured for a given year w/in a site
+### Calcualte total captured for a given year w/in a site
 ```{r}
 spp.ann.tot <- apply(cast.by.site[,-c(1:4)],1,sum)
 length(spp.ann.tot)
@@ -456,7 +472,7 @@ summary(factor(spp.ann.tot$Year))
 
 
 
-Check
+### Check
 ```{r}
 length(unique(spp.ann.tot$Species))
 unique(spp.ann.tot$Year)
@@ -472,7 +488,7 @@ with(spp.ann.tot, table(Year,Session,Location))
 
 
 
-# Add years when no birds were caught
+## Add years when no birds were caught
 
 Note that in its current format,  there is a row of data ONLY if a species was captured at least once - there are no zeros for the year it wasn't captured
 ```{r}
@@ -578,7 +594,7 @@ summary(spp.ann.tot.b)
 
 
 
-# Change NAs to zeros
+## Change NAs to zeros
 
 
 
@@ -613,26 +629,17 @@ with(spp.ann.tot.b,
 ```
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 ## Load effort data
 
 From Table 1 in Lloyd et al 2016.  Note that for 2007 and 2009 there were additional sampling sessions in March for one Location
 
+
 ```{r}
-effort <- read.csv(file = "./data_Lloyd_PeerJ2016/Lloyd_table1_effort.csv")
+#data directory
+d2 <- paste(d.working,"data/data_in", sep = "")
+
+effort <- read.my.csv(file. = "Lloyd_table1_effort",
+                      rel.dir. = d2)
 
 ```
 
@@ -694,7 +701,7 @@ with(spp.ann.tot2[i.PALO,],
 ```
 
 
-# Remove bad location
+## Remove bad location
 
 ```{r}
 i.bad.loc <- which(spp.ann.tot2$Location == "")
@@ -704,7 +711,7 @@ spp.ann.tot2 <- spp.ann.tot2[-i.bad.loc,]
 
 
 
-#Set abundance of NA when net hours = 0
+### Set abundance of NA when net hours = 0
 ```{r}
 i.net.zero <- which(spp.ann.tot2$net.hours == 0)
 
@@ -713,12 +720,36 @@ spp.ann.tot2$spp.ann.tot[i.net.zero] <- NA
 
 
 
-# Save final cleaned data
+### Save final cleaned data
 
 ```{r}
-write.csv(spp.ann.tot2, row.names = F,
-          file = "./data_Lloyd_PeerJ2016/Lloyd_data_for_regression_5_24_17.csv")
+d. <- paste(".",d.working,"data/data_out",sep = "")
+f. <- paste("./",d.,"/Lloyd_data_cleaned.csv", sep = "")
+write.csv(spp.ann.tot2, 
+          row.names = F,
+          file = f.)
 ```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
