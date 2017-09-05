@@ -1,0 +1,249 @@
+---
+title: "Lloyd sensitivity analysis"
+author: "Emily Scott"
+date: "September 5, 2017"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# PART 0: Set initial values
+```{r}
+### Minimum number of species to include in mixed model
+min.spp <- 4
+
+### Selection criteria (year)
+### Minimum number of years captured to be included in model
+min.yr <- 5
+
+### Selection criteria (individuals)
+### Minimum number of inidividuals captured to be included in model
+min.id <- 4
+
+### Do you want to use minimum number of years captured, or minimum number of individuals captured as selection criteria?
+### Options: "year" or "id"
+select.crit <- "year"
+```
+
+
+
+# PART 1: Load packages, set working directory, load data in long and wide formats
+## Load packages
+```{r}
+library(lme4)
+library(reshape2)
+library(ggplot2)
+library(cowplot)
+library(reshape2)
+```
+
+## Set working directory and load long-format data
+```{r}
+setwd("C:/Users/emily/OneDrive/Documents/R/git/Aviary/replications/avian_ecology_replications/Lloyd_2016_PeerJ_Dominican_birds")
+lloyd.dat.long <- read.csv("./data/data_out/Lloyd_data_cleaned.csv")
+```
+
+
+
+# PART 2: Prep data for mixed model
+## Remove second session data
+```{r}
+lloyd.dat.long <- lloyd.dat.long[-(which(lloyd.dat.long$Session == 2)),]
+```
+
+## Create dataframe with data in wide format
+```{r}
+lloyd.dat.wide <- dcast(lloyd.dat.long, Species + Location ~ Year, value.var = "spp.ann.tot")
+```
+
+## Create list of species codes
+```{r}
+spp.list <- list() 
+spp.list <- unique(as.character(lloyd.dat.wide$Species))
+spp.list <- as.list(spp.list)
+```
+
+## Create index for each species
+```{r}
+for (i in 1:length(spp.list))
+{
+    assign(paste("i", spp.list[i], sep = "."), which(lloyd.dat.long$Species == spp.list[i]))
+}
+```
+
+## Replace NAs with 0s so selection criteria works correctly
+```{r}
+i.NA <- is.na(lloyd.dat.wide[,5] == TRUE)
+lloyd.dat.wide[i.NA,5] <- 0
+
+i.NA <- is.na(lloyd.dat.wide[,6] == TRUE)
+lloyd.dat.wide[i.NA,6] <- 0
+```
+
+## Reshape
+## Find species that don't meet selection criteria
+```{r}
+### This chunk runs if the selection criteria is set to number of years captured
+if (select.crit == "year")
+{
+  ### Create column with total number of years captured
+  lloyd.dat.wide$yr.cap <- rowSums(lloyd.dat.wide[,(3:15)] != 0)
+  ### Index species with insufficient captures for selection criteria
+  i.drop1 <- which(lloyd.dat.wide$yr.cap < min.yr)
+  ### Create list of species codes corresponding to species with too few individuals captured
+  bad.spp <- lloyd.dat.wide[i.drop1,c("Species","Location")]
+  ### Index rows in dataframe that correspond to species that didn't meet selection criteria
+  i.drop2 <- which(lloyd.dat.long$Species %in% bad.spp[,1] & lloyd.dat.long$Location %in% bad.spp[,2])
+  ### Create working dataframe
+  dat.working <- lloyd.dat.long[-i.drop2, ]
+}
+
+### This chunk runs if the selection criteria is set to number of individuals captured
+if (select.crit == "id")
+{
+  ### Create column with total number of individuals captured
+  lloyd.dat.wide$id.cap <- rowSums(lloyd.dat.wide[,(3:15)])
+  ### Index species with insufficient captures for selection criteria
+  i.drop1 <- which(lloyd.dat.wide$id.cap < min.id)
+  ### Create list of species codes corresponding to species with too few individuals captured
+  bad.spp <- lloyd.dat.wide[i.drop1, c("Species","Location")]
+  ### Index rows in dataframe that correspond to species that didn't meet selection criteria
+  i.drop2 <- which(lloyd.dat.long$Species %in% bad.spp[,1] & lloyd.dat.long$Location %in% bad.spp[,2])
+  ### Create working dataframe
+  dat.working <- lloyd.dat.long[-i.drop2, ]
+}
+
+### Create working species list by removing species that didn't meet selection criteria
+spp.list.working <- list()
+spp.list.working <- unique(as.character(dat.working$Species))
+spp.list.working <- as.list(spp.list.working)
+```
+
+## Add column for centered year to working dataframe (i.e. center year around 0)
+```{r}
+dat.working$yr.cnt <- scale(dat.working$Year, scale = F)
+
+dat.working$log.net.hours <- with(dat.working, log(net.hours))
+```
+
+
+# PART 3: Prep data for sensitivity analysis
+## Sort species by number of years/individuals captured (set by selection criteria)
+```{r}
+if (select.crit == "year")
+{
+  sorted.df <- lloyd.dat.wide[order(lloyd.dat.wide$yr.cap), ]
+  i.keep <- which(colnames(lloyd.dat.wide) %in% c("Species", "Location", "yr.cap"))
+  sorted.df <- sorted.df[,i.keep]
+}
+
+if (select.crit == "id")
+{
+  sorted.df <- lloyd.dat.wide[order(lloyd.dat.wide$id.cap), ]
+  i.keep <- which(colnames(lloyd.dat.wide) %in% c("Species", "Location", "id.cap"))
+  sorted.df <- sorted.df[,i.keep]
+}
+```
+
+## Drop sorted species with fewest caps (same species as were dropped when creating dat.working above)
+```{r}
+### Index species to be removed 
+i.drop3 <- which(sorted.df$Species %in% bad.spp[,1] & sorted.df$Location %in% bad.spp[,2])
+
+### Remove species
+sorted.df <- sorted.df[-i.drop3,]
+```
+
+## Create matrix to store slopes
+```{r}
+### Want a row for every species 
+### Want a column for each mixed model (4 less than total number of species because mixed model doesn't behave with <5 species)
+mixed.model.summary <- matrix(data = NA, nrow = length(spp.list.working), ncol = 1)
+for (i in 1:length(spp.list.working))
+{
+  mixed.model.summary[i] <- spp.list.working[[i]]
+}
+mixed.model.summary <- as.data.frame(mixed.model.summary)
+colnames(mixed.model.summary) <- c("Species")
+```
+
+## Run mixed model with fewer species each time 
+```{r}
+### Clone dat.working so it doesn't get overwritten during looping process
+updated.dat.working <- dat.working
+
+### Loop through (min.spp) times less than the total number of species because mixed model doesn't behave well with too few species
+for (i in 1:c(length(sorted.df[,2])-min.spp))
+{
+  ### Mixed model
+ 
+  m1.Loc.ranef <- lmer(spp.ann.tot/log.net.hours ~ 1 + yr.cnt +
+                          (1|Species) +
+                          (yr.cnt|Species:Location) +
+                          (1|Year) +
+                          (1|Year:Location),
+                        data = updated.dat.working)
+  
+  ### Store current coefficients
+  current.coeff <- coef(m1.Loc.ranef)$Species[,1]
+  
+  ### Convert coefficients to dataframe
+  current.coeff <- as.data.frame(current.coeff)
+  
+  ### Add column containing species code (for the purpose of merging)
+  current.coeff$Species <- rownames(coef(m1.Loc.ranef)$Species)
+  
+  ### Merge current coefficients with mixed model summary
+  mixed.model.summary <- merge(mixed.model.summary, current.coeff, by = c("Species"), all.x = TRUE)
+  
+  ### Rename column
+  colnames(mixed.model.summary)[i+1] <- paste("M", i, sep = ".")
+
+  # Delete next least abundant species
+  i.drop <- which(updated.dat.working$Species == sorted.df$Species[i] & updated.dat.working$Location == sorted.df$Location[i])
+  updated.dat.working <- updated.dat.working[-i.drop,]
+}
+```
+
+
+
+# PART 4: Plotting
+## Prepare dataframe for plotting
+```{r}
+### Change to dataframe
+mixed.model.summary <- as.data.frame(mixed.model.summary)
+
+### Reshape data to long format
+dat.melt2 <- melt(data = mixed.model.summary, id.vars = "Species")
+```
+
+## Plot
+```{r}
+### Visualize species-specific slope coefficients (use qplot)
+qplot(y = value,
+      x = variable,
+      data = dat.melt2,
+      color = Species,
+      group = Species,
+      geom = c("line"),
+      xlab = "Model",
+      ylab = "Parameter estimate") 
+```
+
+## Plot
+```{r}
+### Visualize species-specific slope coefficients (use ggplot)
+ggplot(data = dat.melt2,
+       aes(x = variable, y = value, colour = Species, group = Species)) +
+  geom_line(size = 1.0) +
+  background_grid(major = "xy", minor = "none") +
+  ggtitle("Sensitivity Analysis") +
+  xlab("Model") +
+  ylab("Parameter estimate")
+```
+
+
+
+
