@@ -55,7 +55,7 @@ lloyd.dat.long <- lloyd.dat.long[-(which(lloyd.dat.long$Session == 2)),]
 
 ## Create dataframe with data in wide format
 ```{r}
-lloyd.dat.wide <- dcast(lloyd.dat.long, Species + Location ~ Year, value.var = "spp.ann.tot")
+lloyd.dat.wide <- dcast(lloyd.dat.long, Species ~ Year, value.var = "spp.ann.tot", fun.aggregate = sum)
 ```
 
 ## Create list of species codes
@@ -75,11 +75,11 @@ for (i in 1:length(spp.list))
 
 ## Replace NAs with 0s so selection criteria works correctly
 ```{r}
+i.NA <- is.na(lloyd.dat.wide[,4] == TRUE)
+lloyd.dat.wide[i.NA,4] <- 0
+
 i.NA <- is.na(lloyd.dat.wide[,5] == TRUE)
 lloyd.dat.wide[i.NA,5] <- 0
-
-i.NA <- is.na(lloyd.dat.wide[,6] == TRUE)
-lloyd.dat.wide[i.NA,6] <- 0
 ```
 
 ## Reshape
@@ -89,13 +89,13 @@ lloyd.dat.wide[i.NA,6] <- 0
 if (select.crit == "year")
 {
   ### Create column with total number of years captured
-  lloyd.dat.wide$yr.cap <- rowSums(lloyd.dat.wide[,(3:15)] != 0)
+  lloyd.dat.wide$yr.cap <- rowSums(lloyd.dat.wide[,(2:14)] != 0)
   ### Index species with insufficient captures for selection criteria
   i.drop1 <- which(lloyd.dat.wide$yr.cap < min.yr)
   ### Create list of species codes corresponding to species with too few individuals captured
-  bad.spp <- lloyd.dat.wide[i.drop1,c("Species","Location")]
+  bad.spp <- lloyd.dat.wide$Species[i.drop1]
   ### Index rows in dataframe that correspond to species that didn't meet selection criteria
-  i.drop2 <- which(lloyd.dat.long$Species %in% bad.spp[,1] & lloyd.dat.long$Location %in% bad.spp[,2])
+  i.drop2 <- which(lloyd.dat.long$Species %in% bad.spp)
   ### Create working dataframe
   dat.working <- lloyd.dat.long[-i.drop2, ]
 }
@@ -104,13 +104,13 @@ if (select.crit == "year")
 if (select.crit == "id")
 {
   ### Create column with total number of individuals captured
-  lloyd.dat.wide$id.cap <- rowSums(lloyd.dat.wide[,(3:15)])
+  lloyd.dat.wide$id.cap <- rowSums(lloyd.dat.wide[,(2:14)])
   ### Index species with insufficient captures for selection criteria
   i.drop1 <- which(lloyd.dat.wide$id.cap < min.id)
   ### Create list of species codes corresponding to species with too few individuals captured
-  bad.spp <- lloyd.dat.wide[i.drop1, c("Species","Location")]
+  bad.spp <- lloyd.dat.wide$Species[i.drop1]
   ### Index rows in dataframe that correspond to species that didn't meet selection criteria
-  i.drop2 <- which(lloyd.dat.long$Species %in% bad.spp[,1] & lloyd.dat.long$Location %in% bad.spp[,2])
+  i.drop2 <- which(lloyd.dat.long$Species %in% bad.spp)
   ### Create working dataframe
   dat.working <- lloyd.dat.long[-i.drop2, ]
 }
@@ -135,14 +135,14 @@ dat.working$log.net.hours <- with(dat.working, log(net.hours))
 if (select.crit == "year")
 {
   sorted.df <- lloyd.dat.wide[order(lloyd.dat.wide$yr.cap), ]
-  i.keep <- which(colnames(lloyd.dat.wide) %in% c("Species", "Location", "yr.cap"))
+  i.keep <- which(colnames(lloyd.dat.wide) %in% c("Species", "yr.cap"))
   sorted.df <- sorted.df[,i.keep]
 }
 
 if (select.crit == "id")
 {
   sorted.df <- lloyd.dat.wide[order(lloyd.dat.wide$id.cap), ]
-  i.keep <- which(colnames(lloyd.dat.wide) %in% c("Species", "Location", "id.cap"))
+  i.keep <- which(colnames(lloyd.dat.wide) %in% c("Species", "id.cap"))
   sorted.df <- sorted.df[,i.keep]
 }
 ```
@@ -150,7 +150,7 @@ if (select.crit == "id")
 ## Drop sorted species with fewest caps (same species as were dropped when creating dat.working above)
 ```{r}
 ### Index species to be removed 
-i.drop3 <- which(sorted.df$Species %in% bad.spp[,1] & sorted.df$Location %in% bad.spp[,2])
+i.drop3 <- which(sorted.df$Species %in% bad.spp)
 
 ### Remove species
 sorted.df <- sorted.df[-i.drop3,]
@@ -202,7 +202,7 @@ for (i in 1:c(length(sorted.df[,2])-min.spp))
   colnames(mixed.model.summary)[i+1] <- paste("M", i, sep = ".")
 
   # Delete next least abundant species
-  i.drop <- which(updated.dat.working$Species == sorted.df$Species[i] & updated.dat.working$Location == sorted.df$Location[i])
+  i.drop <- which(updated.dat.working$Species == sorted.df$Species[i])
   updated.dat.working <- updated.dat.working[-i.drop,]
 }
 ```
