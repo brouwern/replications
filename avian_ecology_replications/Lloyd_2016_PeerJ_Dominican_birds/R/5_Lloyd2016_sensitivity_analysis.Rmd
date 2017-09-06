@@ -12,7 +12,7 @@ knitr::opts_chunk$set(echo = TRUE)
 # PART 0: Set initial values
 ```{r}
 ### Minimum number of species to include in mixed model
-min.spp <- 4
+min.spp <- 5
 
 ### Selection criteria (year)
 ### Minimum number of years captured to be included in model
@@ -235,6 +235,15 @@ qplot(y = value,
 ## Plot
 ```{r}
 ### Visualize species-specific slope coefficients (use ggplot)
+
+png(file = file.path("C:","Users", "emily", "OneDrive", "Documents", "R", "git", "Aviary", "replications", 
+                     "avian_ecology_replications", "Lloyd_2016_PeerJ_Dominican_birds",
+                     "Lloyd_sensitivity_analysis2.png"),
+    width = 10,
+    height = 8,
+    units = "in",
+    res = 300)
+
 ggplot(data = dat.melt2,
        aes(x = variable, y = value, colour = Species, group = Species)) +
   geom_line(size = 1.0) +
@@ -242,6 +251,8 @@ ggplot(data = dat.melt2,
   ggtitle("Sensitivity Analysis") +
   xlab("Model") +
   ylab("Parameter estimate")
+
+dev.off()
 ```
 
 
